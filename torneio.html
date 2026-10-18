@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Torneio Cristal War — Arena Elemental</title>
+<style>
+html,body{margin:0;height:100%;background:#05060f;color:#cfe;font:16px system-ui,sans-serif;overflow:hidden;touch-action:none;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none; scrollbar-gutter:stable}
+textarea{-webkit-user-select:text;user-select:text}
+#w{position:fixed;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);display:flex;align-items:center;justify-content:center}
+canvas{display:block;background:#05060f;touch-action:none}
+#m{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;background:#05060ff2;text-align:center;padding:54px 16px 16px;overflow:auto}
+/* centraliza sem cortar o topo quando o conteúdo é maior que a tela (celular deitado) */
+#m>:first-child,.pn>:first-child{margin-top:auto}#m>:last-child,.pn>:last-child{margin-bottom:auto}
+#m>*{flex-shrink:0}
+#ns{max-width:100%}
+@media (max-width:480px){#ns{max-width:216px}}
+#m .lead{max-width:620px;margin:0;font-size:17px;line-height:1.35}
+#m .how{max-width:620px;margin:0;padding:0;list-style:none;text-align:left;font-size:14px;line-height:1.35;display:grid;gap:6px}
+#m .how li,.pn .how li{background:#0b1230;border:1px solid #1d3a55;border-radius:10px;padding:7px 10px}
+.pn .how{max-width:460px;margin:0;padding:0;list-style:none;text-align:left;font-size:13.5px;line-height:1.35;display:grid;gap:6px}
+.bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+body.pc .tt,body.tc .pp{display:none}
+.ck{display:flex;gap:10px;align-items:flex-start;text-align:left;max-width:460px;font-size:14px;line-height:1.35}
+.ck input{width:22px;height:22px;flex:none;margin:0}
+.pn a,#m a{color:#7ff}
+button:disabled{opacity:.45}
+@media (orientation:landscape) and (max-height:540px){
+ #m{gap:6px;padding:44px 12px 8px}#m h2{margin:0;font-size:20px}#m .lead{font-size:14px;max-width:900px}
+ #m .how{font-size:12.5px;max-width:900px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+ #m small{font-size:12px;max-width:900px}#m button{padding:9px 16px}}
+button,textarea{font:inherit;padding:12px 22px;border-radius:10px;border:0;background:#2aa;color:#012}
+textarea{width:min(90vw,420px);height:70px;background:#0b1230;color:#9fe;font-size:12px}
+small{opacity:.85;max-width:560px}
+body.jogando #cw-perfil{display:none}
+#arco{display:flex;justify-content:center;align-items:flex-start;gap:8px;height:58px;margin:0}
+#arco img,#arco span{width:34px;height:34px;object-fit:contain;font-size:26px;line-height:34px;text-align:center}
+@media (orientation:landscape) and (max-height:540px){#arco{height:44px;gap:6px}#arco img,#arco span{width:26px;height:26px;font-size:20px;line-height:26px}}
+#cdv{position:fixed;inset:0;z-index:99996;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#05060fa6;text-align:center;padding:16px;pointer-events:none}
+#cdv b{font-size:min(34vw,34vh);line-height:1;color:#7ff;text-shadow:0 0 28px #2aa}
+#cdm{font-size:min(8vw,34px);font-weight:700;color:#fff}
+#cds{font-size:min(4.4vw,18px);color:#bde;max-width:520px}
+</style></head><body>
+<div id="w"><canvas id="c" width="800" height="600"></canvas></div>
+<div id="m"><div id="arco" aria-hidden="true"></div><h2>Arena Elemental</h2>
+<p class="lead">Você pilota uma nave numa arena cheia de cristais elementais e drones inimigos. Em <b>90 segundos</b>, faça o máximo de pontos: colete cristais, derrube os drones com o elemento certo e desvie dos tiros. Todos os jogadores enfrentam exatamente a mesma partida.</p>
+<div class="bts"><button id="bu">Tutorial</button><button id="ba">Amistoso (grátis)</button><button id="bt">Torneio</button><button id="br0">Ranking do torneio</button><button id="bfs" style="display:none">Tela cheia</button></div>
+<ul id="t" class="how">
+<li><b>Mover:</b> <span class="tt">use o joystick (círculo à esquerda): quanto mais longe do centro, mais rápido</span><span class="pp">use as setas ou WASD</span>. A nave aponta para onde você anda.</li>
+<li><span data-c="2"></span> <b>Cristais são sua munição.</b> Cada cristal coletado dá tiros do elemento dele e vale +25 pontos. Escolha o elemento no painel de cristais <span class="tt">(toque)</span><span class="pp">(teclas 1–7)</span>.</li>
+<li><span data-c="0"></span> <b>O elemento certo derruba o drone de uma vez.</b> Ex.: Água, Gelo e Vento vencem Fogo; Fogo e Gelo vencem Planta. O elemento de cada drone aparece acima dele.</li>
+<li><b>Atirar:</b> <span class="tt">toque em ATIRAR</span><span class="pp">aperte ESPAÇO</span>, com a nave apontada para o inimigo.</li>
+<li><svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align:-5px" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z" fill="#14325a" stroke="#7ff" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6v12M7 10h10" stroke="#7ff" stroke-width="1.2" opacity=".6"/></svg> <b>Escudo:</b> pegue cristais com anel de escudo para aguentar os tiros dos drones; quanto mais forte contra o elemento do inimigo, mais ele resiste.</li>
+<li><b>Pontos:</b> drone derrotado vale 200 × combo (abates em sequência rápida chegam a x5). Ser atingido ou encostado, sem escudo, custa 300 pontos e zera o combo.</li>
+<li><b>O mapa é maior que a tela.</b> Use o mini mapa (canto do campo) e as setas nas bordas, que apontam drones fora da tela.</li>
+</ul>
+<small id="g"></small>
+<small><b>Escolha sua nave</b> (só visual: todas têm o mesmo tamanho e a mesma força)</small><div id="ns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:64px"></div>
+
+<small>Música e efeitos sonoros: use o botão de som no canto da tela para silenciar.</small><small>Amistoso: treine sem pagar e sem valer prêmio, exatamente na mesma partida e no mesmo mapa do torneio. Recomendamos treinar antes de gastar uma tentativa. Cada ingresso dá 3 tentativas e vale a melhor pontuação das três; depois disso, só com um novo ingresso. Leia o <a href="regulamento-torneio.html" target="_blank" rel="noopener">regulamento do torneio</a>. Na primeira vez, um tutorial rápido aparece (dá para pular).</small></div>
+<button id="sk" style="display:none;position:fixed;top:8px;right:8px;z-index:5;padding:8px 14px">Pular tutorial</button>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+// Mesma conta do site: o Firebase guarda a sessão no navegador (por domínio), então NÃO há segundo login.
+if(!firebase.apps.length)firebase.initializeApp({apiKey:"AIzaSyAQNmZuFp9Di062wUfyvnfSmh2neagNJcs",authDomain:"cristalwar.firebaseapp.com",databaseURL:"https://cristalwar-default-rtdb.firebaseio.com",projectId:"cristalwar",storageBucket:"cristalwar.firebasestorage.app",messagingSenderId:"906934240645",appId:"1:906934240645:web:67f71a4f76ba9e0f1a70ec"});
+</script>
+<script src="auth-cw.js"></script>
+<script>
+// ===== SIMULAÇÃO DETERMINÍSTICA (mesmo código para jogar e para verificar) =====
+// Sem Math.random, sem trig, sem relógio: só + - * / sqrt e comparações -> resultado idêntico em qualquer aparelho.
+const W=800,H=600,TICKS=5400,DT=1000/60,BAR=548;
+// MAPA: o mundo é K vezes a área de jogo da tela (W x BAR); a câmera segue a nave. Para ajustar o tamanho, mude só K (e rebalanceie PV/BV/PD/SD se quiser)
+const K=1.5,WW=W*K,WH=BAR*K,CX=WW/2,CY=WH/2,PV=5,BV=1.3,PD=480,SD=600; // PV: velocidade da nave; BV: fator de velocidade dos bots; PD/SD: vida (ticks) dos cristais comuns/de escudo
+let SEED=+new URLSearchParams(location.search).get('seed')||20261017;const SEED_T=SEED;
+// Elementos (mesma ordem dos cristais do 01.js): 0 Fogo/lua, 1 Gelo/terra, 2 Água/marte, 3 Vento/mercúrio, 4 Elétrico/vênus, 5 Planta/sol
+const NOM=['Fogo','Gelo','Água','Vento','Elétrico','Planta'],EMO=['🔥','❄️','💧','🌪️','⚡','🌿'],COR=['#f63','#8ef','#39f','#cfd','#fd3','#5d5'];
+// Tabela de vantagens do 01.js (ELEMENTO_FORTE_FRACO), por índice
+const FORTE=[[5],[0,5],[0],[0,1],[2],[4,2]],FRACO=[[2,1],[4,3],[4,5],[4],[5],[0,1]];
+const dano=(a,t)=>a>5?1:FORTE[a].includes(t)?6:FRACO[a].includes(t)?1:2; // tiro normal=1; forte=6 (abate); neutro=2; fraco=1
+// ===== NAVES COM ELEMENTO (equilíbrio do torneio) =====
+// Cada nave tem um elemento e uma regra: é FORTE contra 1 elemento de drone (seu tiro vale pelo menos BON de dano, até o tiro normal) e FRACA contra outro
+// (o golpe desse drone custa PEN pontos e tira 1 a mais do escudo). As 6 naves usam cada elemento exatamente 1 vez como "forte" e 1 vez como "fraco".
+// Os drones saem em blocos que trazem os 6 elementos (quadrado latino): toda nave enfrenta o mesmo número de drones fortes/fracos, em momentos parecidos.
+const NAVE_EL=[1,3,5,4,2,0]; // elemento de cada nave (mesma ordem de NAVES): Auralis=Gelo, Tempestara=Vento, Sylvarion=Planta, Quarzalis=Elétrico, Zephyrium=Água, Terranova=Fogo
+const NF=[5,4,0,1,2,3],NW=[2,3,5,4,0,1]; // por elemento da nave (0 Fogo ... 5 Planta): contra qual drone ela é forte (NF) e fraca (NW)
+const BON=3,PEN=450;
+const dmg=(S,a,t)=>{const d=dano(a,t);return S.nv>=0&&NF[NAVE_EL[S.nv]]===t&&d<BON?BON:d};
+function rng(s){return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function elBal(bo){const q=rng((SEED^0x5bd1e995)|0),sh=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(q()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a},n=bo.length/6|0;
+ for(let b=0;b<n;){const g=Math.min(6,n-b);
+  if(g===6){const sg=sh([0,1,2,3,4,5]),ta=sh([0,1,2,3,4,5]);for(let k=0;k<6;k++)for(let j=0;j<6;j++)bo[(b+k)*6+j].e=(sg[j]+ta[k])%6}
+  else for(let k=0;k<g;k++){const p=sh([0,1,2,3,4,5]);for(let j=0;j<6;j++)bo[(b+k)*6+j].e=p[j]}
+  b+=g}}
+function mk(nv){nv=nv==null?-1:nv;const r=rng(SEED),cr=[],bo=[],sp=[]; // nv: índice da nave (0-5); -1 = sem regras de nave (tutorial e partidas antigas v:5)
+ for(let i=0;i<70;i++)cr.push({t:i*75,x:40+r()*(WW-80),y:40+r()*(WH-78),e:Math.floor(r()*6),on:0});
+ for(let i=0;i<9;i++)sp.push({t:300+i*560,x:40+r()*(WW-80),y:40+r()*(WH-78),e:Math.floor(r()*6),on:0}); // cristais de escudo
+ // bots: um de cada vez no início (intervalo grande que vai encurtando), bem lentos no começo e acelerando aos poucos
+ for(let i=0,t=150;t<5250;i++){const a=Math.floor(r()*4),p=r();
+  bo.push({t,x:a<2?p*WW:(a===2?0:WW),y:a<2?(a?WH-10:0):p*(WH-10),e:Math.floor(r()*6),v:(.25+i*.008+r()*.06)*BV,hp:6,s:Math.floor(r()*4),on:0,cd:t+180,fr:Math.max(110,260-i*6),bs:2.4+i*.03});
+  t+=Math.max(120,330-12*i)}
+ if(nv>=0){bo.length-=bo.length%6;elBal(bo)} // posições, tempos e velocidades ficam idênticos; só o elemento dos drones é redistribuído (e a lista fecha em múltiplo de 6)
+ return{k:0,x:CX,y:CY,cr,sp,bo,bl:[],bb:[],am:[2,2,2,2,2,2],cd:0,s:0,cb:0,lc:-999,h:0,iv:0,se:-1,sh:0,ax:1,ay:0,nv}}
+// golpe (tiro ou contato de bot de elemento e): o escudo absorve; escudo forte contra o elemento perde 1, neutro 2, fraco 4 (quebra)
+// nave fraca contra o elemento e: o golpe tira 1 a mais do escudo, ou custa PEN pontos em vez de 300
+function golpe(S,e,k){S.iv=k+90;const fr=S.nv>=0&&NW[NAVE_EL[S.nv]]===e;
+ if(S.sh>0){S.sh=Math.max(0,S.sh-(FORTE[S.se].includes(e)?1:FRACO[S.se].includes(e)?4:2)-(fr?1:0));if(S.sh<1)S.se=-1;return}
+ S.s=Math.max(0,S.s-(fr?PEN:300));S.cb=0;S.h++}
+function step(S,tx,ty,sel,f){const k=S.k;
+ const dx=tx-S.x,dy=ty-S.y,d=Math.sqrt(dx*dx+dy*dy);
+ if(d>0){S.ax=dx/d;S.ay=dy/d} // a nave aponta para onde está indo
+ if(d>PV){S.x+=dx/d*PV;S.y+=dy/d*PV}else{S.x=tx;S.y=ty}
+ for(const c of S.cr){if(k===c.t)c.on=1;
+  if(c.on===1){if(k-c.t>PD)c.on=2;else{const a=c.x-S.x,b=c.y-S.y;
+   if(a*a+b*b<676){c.on=3;S.am[c.e]=Math.min(6,S.am[c.e]+2);S.s+=25}}}}
+ for(const c of S.sp){if(k===c.t)c.on=1;
+  if(c.on===1){if(k-c.t>SD)c.on=2;else{const a=c.x-S.x,b=c.y-S.y;
+   if(a*a+b*b<900){c.on=3;S.se=c.e;S.sh=4}}}}
+ for(const o of S.bo){if(k===o.t)o.on=1;if(o.on!==1)continue;
+  const a=S.x-o.x,b=S.y-o.y,q=a*a+b*b,l=Math.sqrt(q)||1;
+  if(k>=o.cd&&q<129600){S.bb.push({x:o.x,y:o.y,vx:a/l*o.bs,vy:b/l*o.bs,e:o.e,l:0});o.cd=k+o.fr}
+  o.x+=a/l*o.v;o.y+=b/l*o.v;
+  if(k>=S.iv&&q<784){o.on=2;golpe(S,o.e,k);continue}
+  }
+ if(f&&k>=S.cd){let e=sel;if(e<6&&S.am[e]<1)e=6;if(e<6)S.am[e]--; // tiro manual, recarga de 30 ticks (0,5 s, como no 01.js)
+  S.bl.push({x:S.x,y:S.y,vx:S.ax*9,vy:S.ay*9,e,l:0});S.cd=k+30}
+ for(const u of S.bl){u.x+=u.vx;u.y+=u.vy;u.l++;
+  for(const o of S.bo){if(o.on!==1)continue;const a=o.x-u.x,b=o.y-u.y;
+   if(a*a+b*b<676){o.hp-=dmg(S,u.e,o.e);u.l=999;
+    if(o.hp<=0){o.on=2;S.cb=k-S.lc<150?Math.min(S.cb+1,5):1;S.lc=k;S.s+=200*S.cb}break}}}
+ for(const u of S.bb){u.x+=u.vx;u.y+=u.vy;u.l++;
+  if(k>=S.iv){const a=u.x-S.x,b=u.y-S.y;if(a*a+b*b<324){u.l=999;golpe(S,u.e,k)}}}
+ S.bl=S.bl.filter(u=>u.l<80);S.bb=S.bb.filter(u=>u.l<300&&u.x>-20&&u.x<WW+20&&u.y>-20&&u.y<WH+20);S.k++}
+// Refaz a partida a partir do log [tick,x,y,elemento,atirando] -> use para conferir o campeão antes de pagar
+// Valida o log ANTES de simular. O cliente já limita tudo isto, mas o verificador não podia confiar nisso:
+// valores não numéricos viravam NaN e teletransportavam a nave; e 'lim' (d.k) vem do próprio log do jogador.
+function logValido(log,lim){
+ if(lim!=null&&!(Number.isInteger(lim)&&lim>=0&&lim<=TICKS))return false;
+ if(!Array.isArray(log)||log.length>TICKS)return false;
+ let prev=-1;
+ for(const c of log){
+  if(!Array.isArray(c)||c.length<4)return false;
+  const k=c[0],x=c[1],y=c[2],e=c[3],f=c[4];
+  if(!Number.isInteger(k)||k<=prev||k>=TICKS)return false;prev=k;
+  if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||x>WW||y<0||y>WH-8)return false;
+  if(!Number.isInteger(e)||e<0||e>6)return false;
+  if(f!==undefined&&f!==0&&f!==1)return false}
+ return true}
+function verificar(log,lim,nv){if(!logValido(log,lim))return{s:-1,h:-1};const S=mk(nv);let i=0,tx=CX,ty=CY,sel=6,f=0;const N=lim==null?TICKS:lim; // lim: tick em que a partida foi encerrada antes do fim (botão ✕)
+ for(let k=0;k<N;k++){while(i<log.length&&log[i][0]===k){tx=log[i][1];ty=log[i][2];sel=log[i][3];f=log[i][4]||0;i++}step(S,tx,ty,sel,f)}
+ return{s:S.s,h:S.h}}
+window.verificarPartida=verificar;
+
+// ===== VISUAL (não afeta a simulação/pontuação) =====
+const slow=(navigator.deviceMemory&&navigator.deviceMemory<=2)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=2);
+const B=location.pathname.includes('/salas/')?'../images/':'images/';
+const NAVES=['auralis.webp','tempestara.png','sylvarion.png','quarzalis.png','zephyrium.png','terranova.png'];
+let naveIdx=0;try{naveIdx=Math.max(0,Math.min(5,+localStorage.getItem('cwNave')||0))}catch(e){}
+const CRIS=['lua','terra','marte','mercurio','venus','sol'].map(n=>'cristalEspecial_'+n+'.webp');
+// sprite do inimigo por elemento: Fogo=espectro, Gelo=leviata, Elétrico=aniquilador (pedido); Água/Vento/Planta = devorador/energinum/explorador (troque aqui se quiser)
+const DRON=['espectro.png','leviata.png','devorador.png','energinum.png','aniquilador.png','explorador.png'];
+const IM={};
+function ld(n){return new Promise(r=>{const o=(u,f)=>{const i=new Image();i.onload=()=>r(i);i.onerror=f;i.src=u};
+ o(slow?B+'low/'+n:B+n,()=>slow?o(B+n,()=>r(null)):r(null))})}
+const pronto=Promise.all([...NAVES,...CRIS,...DRON].map(n=>ld(n).then(i=>{IM[n]=i})));
+const BG=document.createElement('canvas');BG.width=WW;BG.height=WH+H-BAR; // fundo do mundo desenhado 1 vez; por quadro só 1 drawImage do trecho visível
+(function(){const b=BG.getContext('2d'),r=rng(7),BH=BG.height;b.fillStyle='#05071a';b.fillRect(0,0,WW,BH);
+ [[180,160,300,'120,60,220'],[620,420,340,'40,120,220'],[520,90,220,'200,60,150'],[120,500,230,'30,170,170'],[950,250,300,'200,120,40'],[300,720,280,'60,60,200'],[1050,700,260,'160,50,160']].forEach(([x,y,R,c])=>{
+  const n=b.createRadialGradient(x*K*.8,y*K*.8,0,x*K*.8,y*K*.8,R*K*.8);n.addColorStop(0,'rgba('+c+',.22)');n.addColorStop(1,'rgba('+c+',0)');b.fillStyle=n;b.fillRect(0,0,WW,BH)});
+ for(let i=0,N=Math.round(170*K*K);i<N;i++){const x=r()*WW,y=r()*BH,t=r();b.globalAlpha=.25+t*.6;b.fillStyle=t>.9?'#bdf':'#fff';b.fillRect(x,y,t>.8?2:1,t>.8?2:1)}
+ b.globalAlpha=1})();
+// Projéteis dos bots por elemento: desenhados UMA vez em canvases fora da tela (apontando para a direita) e só reaproveitados por quadro
+const PJ=[0,1,2,3,4,5].map(e=>{const c=document.createElement('canvas');c.width=c.height=48;const b=c.getContext('2d');let t,q;
+ if(e===0){t=b.createLinearGradient(2,0,26,0);t.addColorStop(0,'rgba(255,80,0,0)');t.addColorStop(1,'rgba(255,170,0,.95)');b.fillStyle=t;b.beginPath();b.moveTo(26,13);b.lineTo(2,24);b.lineTo(26,35);b.fill();
+  q=b.createRadialGradient(28,24,1,28,24,13);q.addColorStop(0,'#fff');q.addColorStop(.35,'#ffe14a');q.addColorStop(.7,'#ff6a00');q.addColorStop(1,'rgba(255,60,0,0)');b.fillStyle=q;b.beginPath();b.arc(28,24,13,0,7);b.fill()}
+ else if(e===1){b.shadowColor='#7df';b.shadowBlur=6;q=b.createLinearGradient(6,0,44,0);q.addColorStop(0,'#bff');q.addColorStop(1,'#4ab8ff');b.fillStyle=q;b.beginPath();b.moveTo(44,24);b.lineTo(24,14);b.lineTo(6,24);b.lineTo(24,34);b.closePath();b.fill();
+  b.strokeStyle='#fff';b.lineWidth=1.5;b.stroke();b.beginPath();b.moveTo(10,24);b.lineTo(40,24);b.stroke()}
+ else if(e===2){t=b.createLinearGradient(4,0,24,0);t.addColorStop(0,'rgba(60,150,255,0)');t.addColorStop(1,'rgba(60,150,255,.7)');b.fillStyle=t;b.beginPath();b.moveTo(26,15);b.lineTo(4,24);b.lineTo(26,33);b.fill();
+  q=b.createRadialGradient(28,21,1,28,24,12);q.addColorStop(0,'#cfeaff');q.addColorStop(.5,'#3a9bff');q.addColorStop(1,'#0a4fd0');b.fillStyle=q;b.beginPath();b.arc(28,24,11,0,7);b.fill();
+  b.fillStyle='rgba(255,255,255,.85)';b.beginPath();b.ellipse(31,19,3,2,-.6,0,7);b.fill()}
+ else if(e===3){b.strokeStyle='#e6fff0';b.lineCap='round';b.lineWidth=3.5;b.shadowColor='#bfe';b.shadowBlur=5;b.beginPath();b.arc(24,24,13,.2,4.4);b.stroke();b.lineWidth=2.5;b.beginPath();b.arc(24,24,7,3.4,7.6);b.stroke()}
+ else if(e===4){b.lineJoin='round';b.shadowColor='#fd3';b.shadowBlur=8;b.strokeStyle='#fd3';b.lineWidth=5;b.beginPath();b.moveTo(3,26);b.lineTo(15,17);b.lineTo(21,29);b.lineTo(32,17);b.lineTo(37,27);b.lineTo(45,22);b.stroke();
+  b.shadowBlur=0;b.strokeStyle='#fff';b.lineWidth=2;b.stroke()}
+ else{q=b.createLinearGradient(6,0,42,0);q.addColorStop(0,'#2e9b3f');q.addColorStop(1,'#a6f07a');b.fillStyle=q;b.beginPath();b.moveTo(42,24);b.quadraticCurveTo(24,4,6,24);b.quadraticCurveTo(24,44,42,24);b.fill();
+  b.strokeStyle='#1f6b2c';b.lineWidth=1.8;b.beginPath();b.moveTo(6,24);b.lineTo(38,24);b.stroke()}
+ return c});
+// desenha um projétil de bot (rotação/rastro só visuais)
+function pjDraw(g,u,k,h){h=h||PJ_BOT;const a=u.e===3?k*.35:u.e===5?Math.atan2(u.vy,u.vx)+k*.12:Math.atan2(u.vy,u.vx),sp=PJ[u.e],f=(u.e===4&&(k>>1&1)?1.15:1)*h.sc,ln=Math.hypot(u.vx,u.vy)||1;
+ const d=(x,y,al,sc)=>{g.save();g.translate(x,y);g.rotate(a);g.globalAlpha=al;g.drawImage(sp,-23*sc,-23*sc,46*sc,46*sc);g.restore()};
+ g.fillStyle=h.halo;g.beginPath();g.arc(u.x,u.y,17*h.sc,0,7);g.fill();
+ if(u.e===0||u.e===2)for(let j=3;j>0;j--)d(u.x-u.vx/ln*h.tr*j,u.y-u.vy/ln*h.tr*j,.1*j,(1-.12*j)*h.sc);
+ d(u.x,u.y,1,f)}
+// bots: brilho vermelho (perigo), tamanho cheio. Tiros da nave: brilho azul-claro (seus), um pouco menores
+const PJ_BOT={halo:'rgba(255,60,60,.18)',sc:1,tr:6},PJ_EU={halo:'rgba(110,220,255,.22)',sc:.85,tr:9};
+// guia gerado da própria tabela: quem vence cada elemento
+// ícones da tela inicial: os próprios cristais do jogo (mesma ordem dos elementos); se a imagem não carregar, cai no emoji
+const ic=i=>IM[CRIS[i]]?'<img src="'+IM[CRIS[i]].src+'" alt="" style="width:20px;height:20px;object-fit:contain;vertical-align:-5px">':EMO[i];
+// arco de cristais acima do título: os 6 cristais do jogo, mais altos no centro e mais baixos (e inclinados) nas pontas
+pronto.then(()=>{const ar=document.getElementById('arco');for(let i=0;i<6;i++){const d=i-2.5,e=document.createElement(IM[CRIS[i]]?'img':'span');
+  if(IM[CRIS[i]]){e.src=IM[CRIS[i]].src;e.alt=''}else e.textContent=EMO[i];
+  e.style.transform='translateY('+(d*d*3).toFixed(1)+'px) rotate('+(d*10).toFixed(1)+'deg)';e.style.filter='drop-shadow(0 0 6px '+COR[i]+')';ar.appendChild(e)}});
+pronto.then(()=>{document.querySelectorAll('[data-c]').forEach(s=>{s.innerHTML=ic(+s.dataset.c)});
+ document.getElementById('g').innerHTML='<b>Quem vence cada bot (e qual escudo resiste melhor ao tiro dele):</b><br>'+NOM.map((n,t)=>{const a=NOM.map((_,i)=>i).filter(i=>FORTE[i].includes(t));
+  return ic(t)+' '+n+' ← '+(a.length?a.map(i=>ic(i)+NOM[i]).join(', '):'nenhum (dano normal)')}).join('<br>')});
+
+// ===== ÁUDIO (portado do 01.js: música, tiros, coleta de cristal, motor e botão de mute) =====
+// Só afeta o que se ouve: a simulação e a pontuação não usam nada disto. Os sons são disparados em tick() (jogo), nunca em step()/verificar().
+const SND=location.pathname.includes('/salas/')?'../sounds/':'sounds/';
+const MAX_SONS=6,slowDevice=slow;
+let audioCtx=null,activeSoundCount=0,masterBus=null,masterGainNode=null;
+let isMuted=(()=>{try{return localStorage.getItem('cristalWarMuted')==='true'}catch(e){return false}})(); // mesma chave do 01.js: a escolha vale para o site todo
+function getAudioContext(){
+ if(!audioCtx){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'playback'})}
+  catch(e){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e2){return null}}}
+ if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
+ return audioCtx}
+function getMasterBus(ctx){if(masterBus)return masterBus;masterGainNode=ctx.createGain();masterGainNode.gain.value=isMuted?0:1;masterGainNode.connect(ctx.destination);return masterBus=masterGainNode}
+function aplicarEstadoMute(){if(!masterGainNode)return;const alvo=isMuted?0:1;
+ if(audioCtx){const t=audioCtx.currentTime;masterGainNode.gain.cancelScheduledValues(t);masterGainNode.gain.setTargetAtTime(alvo,t,.05)}else masterGainNode.gain.value=alvo}
+function setMuted(m){isMuted=m;try{localStorage.setItem('cristalWarMuted',String(m))}catch(e){}aplicarEstadoMute();atualizarMusica();atualizarBotaoMute()}
+const toggleMute=()=>setMuted(!isMuted);
+
+// --- música de fundo (<audio> em loop; começa no primeiro gesto e segue o mute) ---
+const MUSICA_SRC=SND+'musica3.mp3',MUSICA_VOLUME=.4;
+let musicaAudio=null,musicaIniciada=false,musicaTentando=false;
+function garantirMusica(){if(musicaAudio)return musicaAudio;
+ try{const a=new Audio();a.loop=true;a.preload='auto';a.volume=MUSICA_VOLUME;a.src=MUSICA_SRC;
+  a.addEventListener('error',()=>console.warn('Música de fundo: não foi possível carregar "'+MUSICA_SRC+'".'));musicaAudio=a}catch(e){musicaAudio=null}
+ return musicaAudio}
+// A música só toca com a partida rodando (musicaJogo) e entra com fade-in. No primeiro gesto o <audio> é só "destravado" (play mudo + pause),
+// para o navegador/iOS permitir tocar depois, quando a partida começar (que não é um gesto).
+let musicaJogo=false,musicaFade=0,musicaPrime=0;const MUSICA_FADEIN=5,MUSICA_FADEOUT=.8; // segundos
+function fadeMusica(alvo,dur,cb){const a=musicaAudio;if(!a)return;clearInterval(musicaFade);const v0=a.volume,t0=performance.now();
+ musicaFade=setInterval(()=>{const p=Math.min(1,(performance.now()-t0)/(dur*1000));try{a.volume=v0+(alvo-v0)*p}catch(e){}if(p>=1){clearInterval(musicaFade);if(cb)cb()}},50)}
+function primeMusica(){if(musicaPrime)return;const a=garantirMusica();if(!a||!a.paused)return;musicaPrime=1;
+ const fin=()=>{if(!musicaJogo){a.pause();a.currentTime=0}a.muted=false};
+ try{a.muted=true;const p=a.play();if(p&&p.then)p.then(fin).catch(()=>{a.muted=false;musicaPrime=0});else fin()}catch(e){a.muted=false;musicaPrime=0}}
+function iniciarMusica(){if(isMuted||!musicaJogo||musicaTentando)return;const a=garantirMusica();if(!a||!a.paused)return;let p;
+ const ok=()=>{musicaIniciada=true;removerGatilhosMusica();fadeMusica(MUSICA_VOLUME,MUSICA_FADEIN)};
+ try{a.volume=0;p=a.play()}catch(e){return}
+ if(p&&p.then){musicaTentando=true;p.then(()=>{musicaTentando=false;ok()}).catch(()=>{musicaTentando=false})}
+ else ok()}
+function musicaLigar(){musicaJogo=true;const a=garantirMusica();if(a&&!a.paused&&!isMuted){fadeMusica(MUSICA_VOLUME,MUSICA_FADEIN)}else iniciarMusica()}
+function musicaDesligar(){musicaJogo=false;const a=musicaAudio;if(a&&!a.paused)fadeMusica(0,MUSICA_FADEOUT,()=>{if(!musicaJogo){a.pause();try{a.currentTime=0}catch(e){}}})}
+function atualizarMusica(){if(isMuted){clearInterval(musicaFade);if(musicaAudio)musicaAudio.pause()}else iniciarMusica()}
+const GESTOS=['pointerdown','touchend','keydown','click'];
+function onGesto(){const c=getAudioContext();primeMusica();loadEngineMp3(c)} // o mesmo gesto destrava o áudio, prepara a música (sem tocar) e já baixa o motor
+function removerGatilhosMusica(){if(audioCtx&&audioCtx.state==='running')GESTOS.forEach(ev=>removeEventListener(ev,onGesto))}
+GESTOS.forEach(ev=>addEventListener(ev,onGesto,{passive:true}));
+document.addEventListener('visibilitychange',()=>{if(!musicaAudio||!musicaIniciada)return;if(document.hidden)musicaAudio.pause();else if(!isMuted)iniciarMusica()});
+
+// --- eco compartilhado e saturação (usados só pelo tiro especial) ---
+let echoReady=false,echoInputGain=null,echoDelay=null,echoFeedbackGain=null,echoDampingFilter=null;
+function ensureEchoNodes(ctx){if(echoReady)return;
+ try{echoInputGain=ctx.createGain();echoDelay=ctx.createDelay(1);echoDelay.delayTime.setValueAtTime(.24,ctx.currentTime);
+  echoFeedbackGain=ctx.createGain();echoFeedbackGain.gain.setValueAtTime(.42,ctx.currentTime);
+  echoDampingFilter=ctx.createBiquadFilter();echoDampingFilter.type='lowpass';echoDampingFilter.frequency.setValueAtTime(1700,ctx.currentTime);
+  echoInputGain.connect(echoDelay);echoDelay.connect(getMasterBus(ctx));echoDelay.connect(echoFeedbackGain);echoFeedbackGain.connect(echoDampingFilter);echoDampingFilter.connect(echoDelay);echoReady=true}
+ catch(e){echoReady=false}}
+function sendToEcho(ctx,src,level){if(slowDevice)return;ensureEchoNodes(ctx);if(!echoReady)return;const s=ctx.createGain();s.gain.setValueAtTime(level,ctx.currentTime);src.connect(s);s.connect(echoInputGain)}
+let satCurve=null;
+function getDarkSaturationCurve(){if(satCurve)return satCurve;const n=256,c=new Float32Array(n);for(let i=0;i<n;i++){const x=i/(n-1)*2-1;c[i]=Math.tanh(x*1.7)}return satCurve=c}
+function rampParam(p,v,ctx,d){const t=ctx.currentTime;p.cancelScheduledValues(t);p.setValueAtTime(p.value,t);p.linearRampToValueAtTime(v,t+d)}
+function createNoiseBuffer(ctx,secs){const len=Math.floor(ctx.sampleRate*secs),b=ctx.createBuffer(1,len,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;return b}
+let shotNoise=null;const getShotNoiseBuffer=ctx=>shotNoise||(shotNoise=createNoiseBuffer(ctx,2));
+
+// --- coleta de cristal ---
+function playTone(ctx,freq,t0,dur,type,peak){const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t0);
+ g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(peak,t0+.01);g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+ o.connect(g);g.connect(getMasterBus(ctx));o.start(t0);o.stop(t0+dur+.02)}
+function playCollectSound(tipo){if(activeSoundCount>=MAX_SONS)return;const ctx=getAudioContext();if(!ctx)return;
+ activeSoundCount++;setTimeout(()=>{activeSoundCount=Math.max(0,activeSoundCount-1)},tipo==='special'?350:150);const now=ctx.currentTime;
+ if(tipo==='special'){playTone(ctx,784,now,.12,'triangle',.20);playTone(ctx,987.8,now+.06,.12,'triangle',.20);playTone(ctx,1318.5,now+.12,.18,'triangle',.22)}
+ else{const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(520,now);o.frequency.exponentialRampToValueAtTime(880,now+.09);
+  g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(.6,now+.01);g.gain.exponentialRampToValueAtTime(.001,now+.12);o.connect(g);g.connect(getMasterBus(ctx));o.start(now);o.stop(now+.14)}}
+
+// --- tiros: normal (sem cristal) e especial (com cristal), mesmos parâmetros do 01.js ---
+function tiroSom(P){if(activeSoundCount>=MAX_SONS)return;const ctx=getAudioContext();if(!ctx)return;
+ activeSoundCount++;setTimeout(()=>{activeSoundCount=Math.max(0,activeSoundCount-1)},P.libera);
+ const now=ctx.currentTime,dur=P.dur,bus=ctx.createGain();bus.gain.setValueAtTime(1,now);
+ const rf=ctx.createBiquadFilter();rf.type='bandpass';rf.Q.setValueAtTime(11,now);rf.frequency.setValueAtTime(P.rf0,now);rf.frequency.exponentialRampToValueAtTime(P.rf1,now+dur);
+ const sh=ctx.createWaveShaper();sh.curve=getDarkSaturationCurve();sh.oversample='2x';
+ bus.connect(rf);rf.connect(sh);sh.connect(getMasterBus(ctx));
+ if(P.eco)sendToEcho(ctx,bus,P.eco);
+ const cn=ctx.createBufferSource();cn.buffer=getShotNoiseBuffer(ctx);const cf=ctx.createBiquadFilter();cf.type='bandpass';cf.frequency.setValueAtTime(P.cf,now);cf.Q.setValueAtTime(P.cq,now);
+ const cg=ctx.createGain();cg.gain.setValueAtTime(P.cg,now);cg.gain.exponentialRampToValueAtTime(.001,now+P.cd);cn.connect(cf);cf.connect(cg);cg.connect(bus);cn.start(now);cn.stop(now+P.cd+.01);
+ const o=ctx.createOscillator(),g=ctx.createGain();o.type='sawtooth';o.frequency.setValueAtTime(P.f0,now);o.frequency.exponentialRampToValueAtTime(P.f1,now+dur);
+ g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(P.g1,now+P.at);g.gain.exponentialRampToValueAtTime(.001,now+dur);o.connect(g);g.connect(bus);o.start(now);o.stop(now+dur+.03);
+ const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type='sawtooth';o2.frequency.setValueAtTime(P.f0,now);o2.detune.setValueAtTime(P.det,now);o2.frequency.exponentialRampToValueAtTime(P.f1,now+dur);
+ g2.gain.setValueAtTime(0,now);g2.gain.linearRampToValueAtTime(P.g2,now+P.at);g2.gain.exponentialRampToValueAtTime(.001,now+dur);o2.connect(g2);g2.connect(bus);o2.start(now);o2.stop(now+dur+.03);
+ const sb=ctx.createOscillator(),sg=ctx.createGain();sb.type='sine';sb.frequency.setValueAtTime(P.s0,now);sb.frequency.exponentialRampToValueAtTime(P.s1,now+dur*P.sf);
+ sg.gain.setValueAtTime(0,now);sg.gain.linearRampToValueAtTime(P.sg,now+P.sa);sg.gain.exponentialRampToValueAtTime(.001,now+dur*P.se);sb.connect(sg);sg.connect(bus);sb.start(now);sb.stop(now+dur)}
+const playShootSpecialSound=()=>tiroSom({libera:700,dur:.5,rf0:720,rf1:80,eco:.55,cf:850,cq:.65,cg:.62,cd:.06,f0:700,f1:50,g1:.44,at:.01,det:-18,g2:.28,s0:125,s1:32,sf:.9,sg:.48,sa:.012,se:.95});
+const playShootNormalSound=()=>tiroSom({libera:400,dur:.3,rf0:800,rf1:90,eco:0,cf:1000,cq:.7,cg:.46,cd:.04,f0:800,f1:58,g1:.38,at:.008,det:-16,g2:.24,s0:135,s1:36,sf:.8,sg:.4,sa:.01,se:.85});
+
+// --- motor: mp3 em loop com crossfade; se o arquivo não carregar, usa o motor sintetizado (igual ao 01.js) ---
+let engineIsMoving=false,engineIsBoosting=false,engineNodesReady=false,engineMp3Failed=false,engineMp3Buffer=null,engineMp3Loading=false,engineMp3Playing=false,engineMp3Source=null,engineMp3Gain=null,engineMp3LoopTimer=null;
+let engineFilter,engineFilterLFO,engineFilterLFODepth,engineToneOsc1,engineToneOsc2,engineToneGain,engineToneLFO,engineToneLFODepth,engineMasterGain;
+const ENGINE_RAMP=.08,ENGINE_MP3_SRC=SND+'motor.mp3',ENGINE_MP3_VOLUME_NORMAL=.5,ENGINE_MP3_VOLUME_BOOST=.8,ENGINE_MP3_RATE_NORMAL=1,ENGINE_MP3_RATE_BOOST=1.3,ENGINE_MP3_FADE=.15,ENGINE_MP3_CROSSFADE=.3;
+const EN={n:{ff:500,fq:.35,fl:.35,fd:120,pk:.16,t1:210,t2:214,tp:.045,tl:.12,td:2.5},b:{ff:950,fq:.45,fl:.6,fd:250,pk:.24,t1:300,t2:307,tp:.07,tl:.2,td:4}};
+function ensureEngineNodes(){if(engineNodesReady)return;const ctx=getAudioContext();if(!ctx)return;
+ try{const t=ctx.currentTime,N=EN.n,src=ctx.createBufferSource();src.buffer=createNoiseBuffer(ctx,2);src.loop=true;
+  engineFilter=ctx.createBiquadFilter();engineFilter.type='lowpass';engineFilter.frequency.setValueAtTime(N.ff,t);engineFilter.Q.setValueAtTime(N.fq,t);
+  engineFilterLFO=ctx.createOscillator();engineFilterLFO.frequency.setValueAtTime(N.fl,t);engineFilterLFODepth=ctx.createGain();engineFilterLFODepth.gain.setValueAtTime(N.fd,t);
+  engineToneOsc1=ctx.createOscillator();engineToneOsc1.frequency.setValueAtTime(N.t1,t);engineToneOsc2=ctx.createOscillator();engineToneOsc2.frequency.setValueAtTime(N.t2,t);
+  engineToneGain=ctx.createGain();engineToneGain.gain.setValueAtTime(N.tp,t);engineToneLFO=ctx.createOscillator();engineToneLFO.frequency.setValueAtTime(N.tl,t);
+  engineToneLFODepth=ctx.createGain();engineToneLFODepth.gain.setValueAtTime(N.td,t);engineMasterGain=ctx.createGain();engineMasterGain.gain.setValueAtTime(0,t);
+  engineFilterLFO.connect(engineFilterLFODepth);engineFilterLFODepth.connect(engineFilter.frequency);src.connect(engineFilter);engineFilter.connect(engineMasterGain);
+  engineToneLFO.connect(engineToneLFODepth);engineToneLFODepth.connect(engineToneOsc1.frequency);engineToneLFODepth.connect(engineToneOsc2.frequency);
+  engineToneOsc1.connect(engineToneGain);engineToneOsc2.connect(engineToneGain);engineToneGain.connect(engineMasterGain);engineMasterGain.connect(getMasterBus(ctx));
+  src.start();engineFilterLFO.start();engineToneOsc1.start();engineToneOsc2.start();engineToneLFO.start();engineNodesReady=true}
+ catch(e){engineNodesReady=false}}
+function applyEngineSynth(ctx,ligar){const E=engineIsBoosting?EN.b:EN.n,d=ENGINE_RAMP;
+ rampParam(engineFilter.frequency,E.ff,ctx,d);rampParam(engineFilter.Q,E.fq,ctx,d);rampParam(engineFilterLFO.frequency,E.fl,ctx,d);rampParam(engineFilterLFODepth.gain,E.fd,ctx,d);
+ rampParam(engineToneOsc1.frequency,E.t1,ctx,d);rampParam(engineToneOsc2.frequency,E.t2,ctx,d);rampParam(engineToneGain.gain,E.tp,ctx,d);rampParam(engineToneLFO.frequency,E.tl,ctx,d);rampParam(engineToneLFODepth.gain,E.td,ctx,d);
+ if(ligar||engineIsMoving)rampParam(engineMasterGain.gain,E.pk,ctx,d)}
+function startEngineSynth(){ensureEngineNodes();if(!engineNodesReady)return;const ctx=getAudioContext();if(ctx)applyEngineSynth(ctx,true)}
+function stopEngineSynth(){if(!engineNodesReady)return;const ctx=getAudioContext();if(ctx)rampParam(engineMasterGain.gain,0,ctx,ENGINE_RAMP)}
+function loadEngineMp3(ctx){if(!ctx||engineMp3Buffer||engineMp3Loading||engineMp3Failed)return;engineMp3Loading=true;
+ fetch(ENGINE_MP3_SRC).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(d=>ctx.decodeAudioData(d)).then(b=>{engineMp3Buffer=b})
+  .catch(()=>{engineMp3Failed=true;if(engineIsMoving)startEngineSynth()}).finally(()=>{engineMp3Loading=false})}
+function scheduleEngineMp3Segment(ctx,at){if(!engineMp3Buffer||!engineMp3Playing)return;
+ const rate=engineIsBoosting?ENGINE_MP3_RATE_BOOST:ENGINE_MP3_RATE_NORMAL,vol=engineIsBoosting?ENGINE_MP3_VOLUME_BOOST:ENGINE_MP3_VOLUME_NORMAL,dur=engineMp3Buffer.duration/rate,fade=Math.min(ENGINE_MP3_CROSSFADE,dur/2);
+ try{const s=ctx.createBufferSource();s.buffer=engineMp3Buffer;s.playbackRate.setValueAtTime(rate,at);const g=ctx.createGain();
+  g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(vol,at+fade);g.gain.setValueAtTime(vol,at+dur-fade);g.gain.linearRampToValueAtTime(0,at+dur);
+  s.connect(g);g.connect(getMasterBus(ctx));s.start(at);s.stop(at+dur+.05);engineMp3Source=s;engineMp3Gain=g;
+  const next=at+dur-fade;engineMp3LoopTimer=setTimeout(()=>{if(engineMp3Playing)scheduleEngineMp3Segment(ctx,next)},Math.max(0,(next-ctx.currentTime-.05)*1000))}catch(e){}}
+function startEngineMp3(){if(engineMp3Failed){startEngineSynth();return}const ctx=getAudioContext();if(!ctx)return;
+ if(!engineMp3Buffer){loadEngineMp3(ctx);setTimeout(()=>{if(engineIsMoving)startEngineMp3()},200);return}
+ if(engineMp3Source||engineMp3Playing)return;engineMp3Playing=true;scheduleEngineMp3Segment(ctx,ctx.currentTime)}
+function stopEngineMp3(){engineMp3Playing=false;if(engineMp3LoopTimer){clearTimeout(engineMp3LoopTimer);engineMp3LoopTimer=null}
+ if(!engineMp3Source||!engineMp3Gain)return;const ctx=getAudioContext();if(!ctx)return;const s=engineMp3Source,g=engineMp3Gain;engineMp3Source=engineMp3Gain=null;
+ rampParam(g.gain,0,ctx,ENGINE_MP3_FADE);setTimeout(()=>{try{s.stop()}catch(e){}},ENGINE_MP3_FADE*1000+30)}
+function updateEngineSound(mov,boost){if(mov===engineIsMoving&&boost===engineIsBoosting)return;engineIsBoosting=boost;
+ if(mov!==engineIsMoving){engineIsMoving=mov;if(mov){engineMp3Failed?startEngineSynth():startEngineMp3()}else{engineMp3Failed?stopEngineSynth():stopEngineMp3();stopEngineSynth()}}
+ else if(engineIsMoving){const ctx=getAudioContext();if(!ctx)return;
+  if(engineMp3Failed)applyEngineSynth(ctx,false);else if(engineMp3Source&&engineMp3Gain){rampParam(engineMp3Source.playbackRate,boost?ENGINE_MP3_RATE_BOOST:ENGINE_MP3_RATE_NORMAL,ctx,ENGINE_MP3_FADE);rampParam(engineMp3Gain.gain,boost?ENGINE_MP3_VOLUME_BOOST:ENGINE_MP3_VOLUME_NORMAL,ctx,ENGINE_MP3_FADE)}}}
+
+// --- botão de mute (mesmo ícone do 01.js; no jogo fica no painel, fora do campo de visão) ---
+const MUTE_SVG='<svg viewBox="0 0 24 24" width="56%" height="56%" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="pointer-events:none;display:block"><polygon points="3 9 7 9 12 5 12 19 7 15 3 15"></polygon>';
+const MUTE_ICONE_SOM=MUTE_SVG+'<path d="M15.5 9a4 4 0 0 1 0 6"></path><path d="M18.5 6.5a8 8 0 0 1 0 11"></path></svg>',MUTE_ICONE_MUDO=MUTE_SVG+'<path d="M16 9l6 6"></path><path d="M22 9l-6 6"></path></svg>';
+const muteBtn=document.createElement('button');muteBtn.id='btn-mute-cristal-war';muteBtn.type='button';
+muteBtn.style.cssText='position:fixed;z-index:99990;width:38px;height:38px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;touch-action:manipulation';
+muteBtn.addEventListener('click',()=>{getAudioContext();toggleMute()});
+function atualizarBotaoMute(){muteBtn.innerHTML=isMuted?MUTE_ICONE_MUDO:MUTE_ICONE_SOM;muteBtn.title=isMuted?'Ativar som':'Silenciar';muteBtn.setAttribute('aria-label',muteBtn.title)}
+document.body.appendChild(muteBtn);atualizarBotaoMute();
+// botão ✕ (encerrar partida): canto superior esquerdo; só aparece durante a partida (ver atualizarX)
+const xBtn=document.createElement('button');xBtn.id='btn-sair-cristal-war';xBtn.type='button';xBtn.title='Encerrar partida';xBtn.setAttribute('aria-label','Encerrar partida');
+xBtn.style.cssText='position:fixed;z-index:99990;width:38px;height:38px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;touch-action:manipulation';
+xBtn.innerHTML='<svg viewBox="0 0 24 24" width="50%" height="50%" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true" style="pointer-events:none;display:block"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+xBtn.addEventListener('click',()=>pedirSair());
+document.body.appendChild(xBtn);
+// ✕ e mute só aparecem com a partida rodando (o ✕ não aparece no tutorial; o mute sim)
+let xv=0,mv=0;function atualizarX(){const j=document.body.classList.contains('jogando')&&run,v=j&&!tut?1:0,m=j?1:0;
+ if(v!==xv){xv=v;xBtn.style.display=v?'flex':'none'}
+ if(m!==mv){mv=m;muteBtn.style.display=m?'flex':'none'}}
+function posMute(){const b=muteBtn.style;atualizarX();
+ if(!document.body.classList.contains('jogando'))return;
+ const r=cv.getBoundingClientRect();const m=6,wv=document.documentElement.clientWidth,hv=document.documentElement.clientHeight;
+ const pos=(s,P)=>{s.left=Math.round(Math.max(m,Math.min(wv-38-m,r.left+P.x*CS-19)))+'px';s.top=Math.round(Math.max(m,Math.min(hv-38-m,r.top+P.y*CS-19)))+'px'};
+ pos(b,MUTE);pos(xBtn.style,XB);
+ // deitado: ✕ e mute empilhados no painel esquerdo. A posição vem em unidades do canvas (que encolhem em celular), então garante 8 px de folga na tela
+ if(LAND){const xt=parseFloat(xBtn.style.top),mt=parseFloat(b.top);if(mt<xt+46)b.top=Math.round(xt+46)+'px'}}
+// --- gatilhos de som no laço do jogo (só observam o estado; não alteram a simulação) ---
+let sPa=0,sPb=0,sPx=0,sPy=0,sStill=0;
+function somReset(){sPa=sPb=0;sPx=S.x;sPy=S.y;sStill=0;updateEngineSound(false,false)}
+function somTick(cd0){
+ if(S.cd!==cd0&&S.bl.length){if(S.bl[S.bl.length-1].e<6)playShootSpecialSound();else playShootNormalSound()}
+ let a=0,b=0;for(const c of S.cr)if(c.on===3)a++;for(const c of S.sp)if(c.on===3)b++;
+ if(a>sPa)playCollectSound('special');if(b>sPb)playCollectSound('energy');sPa=a;sPb=b;
+ if(Math.abs(S.x-sPx)+Math.abs(S.y-sPy)>.25){sStill=0;updateEngineSound(true,false)}else if(++sStill>8)updateEngineSound(false,false);
+ sPx=S.x;sPy=S.y}
+
+// ===== JOGO (entrada, laço de tempo fixo, desenho) =====
+const NN=['Auralis','Tempestara','Sylvarion','Quarzalis','Zephyrium','Terranova'],ns=document.getElementById('ns');
+const marcar=()=>[...ns.children].forEach((b,i)=>b.style.outline=i===naveIdx?'3px solid #5ef':'1px solid #234');
+pronto.then(()=>{NAVES.forEach((n,i)=>{const b=document.createElement('button');b.title=NN[i];
+ b.style.cssText='padding:4px;background:#0b1230;border-radius:10px;width:64px;height:64px;color:#9fe;font-size:10px';
+ b.innerHTML=IM[n]?'<img src="'+IM[n].src+'" style="width:100%;height:100%;object-fit:contain">':NN[i];
+ b.onclick=()=>{naveIdx=i;try{localStorage.setItem('cwNave',i)}catch(e){}marcar()};ns.appendChild(b)});marcar()});
+const cv=document.getElementById('c'),g=cv.getContext('2d'),menu=document.getElementById('m');
+const mostra=v=>{menu.style.display=v;document.body.classList.toggle('jogando',v==='none');posMute()};
+let lf=0,fbp=-1,fm=0,fk=0,tut=0,ts=0,tb=null,tpend=null,td=0,angV=0,angT=0,tAng=0,am=0,S,log,acc,last,run=0,tx=400,ty=300,ltx,lty,lsel,sel=6,pausas=0,keys={},mpid=-1,sx=400,sy=300,ptr=0,camX=0,camY=0,kb=0,jp=-1,jm=0,jdx=0,jdy=0,jkx=0,jky=0,hA=0,hs=0;
+const cl=(v,a,b)=>v<a?a:v>b?b:v;
+// ===== LAYOUT ADAPTÁVEL (só visual: a simulação e a pontuação não usam nada disto) =====
+// O campo de visão tem SEMPRE a mesma área (800x548 com o celular deitado, 548x800 em pé): ninguém enxerga mais mapa que outro jogador.
+// O canvas preenche a tela inteira; o que sobra vira painel (cristais à esquerda e ATIRAR à direita deitado; embaixo em pé).
+let VW=W,VH=BAR,FX=0,FY=0,CVW=W,CVH=H,LAND=1,RS=1,CS=1,ATK={x:725,y:455,r:46},JOY={x:80,y:450,r:56},CRY={x:0,y:0,w:56,h:70},HUDP={x:10,y:10},MUTE={x:68,y:24},XB={x:24,y:24};
+function layout(){const w=document.getElementById('w'),aw=w.clientWidth||innerWidth,ah=w.clientHeight||innerHeight,asp=aw/ah;
+ LAND=asp>=1?1:0;VW=LAND?W:BAR;VH=LAND?BAR:W;
+ // caixa mínima: campo + painéis. Deitado: PM px de cada lado (celular: espaço p/ joystick e cristais+ATIRAR). Em pé: PH px embaixo
+ const PM=PC?90:120,PH=PC?210:296,mw=LAND?VW+2*PM:VW,mh=LAND?VH:VH+PH;
+ if(asp>=mw/mh){CVH=mh;CVW=Math.round(mh*asp)}else{CVW=mw;CVH=Math.round(mw/asp)}
+ FX=Math.round((CVW-VW)/2);FY=LAND?Math.round((CVH-VH)/2):0;
+ CS=aw/CVW;RS=Math.max(1,Math.min(slow?1:2,CS*(window.devicePixelRatio||1)));
+ cv.width=Math.round(CVW*RS);cv.height=Math.round(CVH*RS);cv.style.width=Math.round(CVW*CS)+'px';cv.style.height=Math.round(CVH*CS)+'px';
+ if(LAND){const pw=CVW-FX-VW;
+  if(PC){const r=Math.max(34,Math.min(54,pw/2-8));ATK={x:FX+VW+pw/2,y:FY+VH-r-18,r}}
+  else{ // celular/tablet deitado: esquerda = placar + joystick; direita = cristais (2 colunas) + ATIRAR
+   const r=Math.max(36,Math.min(56,pw/2-8)),jr=Math.max(40,Math.min(74,pw/2-8));
+   ATK={x:FX+VW+pw/2,y:FY+VH-r-14,r};JOY={x:FX/2,y:FY+VH-jr-14,r:jr};
+   const top=FY+4,area=ATK.y-ATK.r-10-top;CRY={x:FX+VW+4,y:top,w:(pw-8)/2,h:Math.max(44,Math.min(76,area/4))};HUDP={x:10,y:Math.max(FY+100,Math.ceil((Math.max(6,(FY+24)*CS-19)+90)/CS)-7)}}}
+ else if(PC){ATK={x:FX+VW-76,y:CVH-70,r:50}}
+ else{ // celular/tablet em pé: cristais em cima do painel; joystick à esquerda e ATIRAR à direita, na altura que sobrar
+  const zt=VH+92,zh=CVH-zt,cy=Math.round(zt+zh/2),jr=Math.max(40,Math.min(76,zh/2-10,VW*.17)),r=Math.max(38,Math.min(56,jr*.78));
+  JOY={x:FX+jr+22,y:cy,r:jr};ATK={x:FX+VW-r-22,y:cy,r};HUDP={x:FX+2*jr+36,y:zt+10}}
+ // ✕ e mute juntos no canto superior esquerdo, longe de joystick/ATIRAR: deitado ficam no painel esquerdo; em pé, no canto do campo
+ // deitado: ✕ no topo do painel esquerdo e o mute logo abaixo; em pé: ✕ no canto do campo e o mute embaixo, no meio, entre joystick e ATIRAR (no PC, no canto direito)
+ if(LAND){XB={x:24,y:FY+24};MUTE={x:24,y:FY+70}}else{XB={x:FX+24,y:24};MUTE={x:PC?FX+VW-30:FX+VW/2,y:CVH-26}}
+ posMute();if(S&&!run)draw()}
+const cel=i=>LAND?(PC?[4,FY+96+i*(VH-96)/7,FX-8,(VH-96)/7]:(i<6?[CRY.x+(i%2)*CRY.w,CRY.y+(i>>1)*CRY.h,CRY.w,CRY.h]:[CRY.x,CRY.y+3*CRY.h,CRY.w*2,CRY.h])):[FX+i*VW/7,VH+4,VW/7,84]; // retângulo de cada cristal no painel
+function celAt(x,y){for(let i=0;i<7;i++){const c=cel(i);if(x>=c[0]&&x<c[0]+c[2]&&y>=c[1]&&y<c[1]+c[3])return i}return-1}
+function xy(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*CVW,(e.clientY-r.top)/r.height*CVH]}
+function mover(e){const[x,y]=xy(e);sx=cl(x-FX,0,VW);sy=cl(y-FY,0,VH);ptr=1} // guarda a posição NA TELA; o alvo no mundo é calculado em tick()
+function cam(){camX=Math.round(cl(S.x-VW/2,0,WW-VW));camY=Math.round(cl(S.y-VH/2,0,WH-VH))}
+// Controle analógico (como um joystick que segue o dedo/mouse): dedo em cima da nave = parada; quanto mais longe, mais rápido (até PV).
+// O alvo enviado à simulação fica sempre a no máximo PV px da nave, então ao soltar/parar não há "deslize".
+function ponteiro(){cam();const ox=sx-(S.x-camX),oy=sy-(S.y-camY),l=Math.sqrt(ox*ox+oy*oy);
+ if(l<8){tx=Math.round(S.x*10)/10;ty=Math.round(S.y*10)/10;return}
+ const v=Math.min(PV,(l-8)*PV/70);tx=cl(Math.round((S.x+ox/l*v)*10)/10,0,WW);ty=cl(Math.round((S.y+oy/l*v)*10)/10,0,WH-8)}
+// PC (mouse + teclado): sem botão de atirar e sem mover/atirar com o mouse; só setas/WASD e Espaço. Celular/tablet (toque) continua igual
+const PC=!!(window.matchMedia&&matchMedia('(hover:hover) and (pointer:fine)').matches);
+document.body.classList.add(PC?'pc':'tc');
+addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,200));if(window.visualViewport)visualViewport.addEventListener('resize',layout);
+layout();
+{const bfs=document.getElementById('bfs'),de=document.documentElement;if(!PC&&de.requestFullscreen){bfs.style.display='';bfs.onclick=()=>{de.requestFullscreen().catch(()=>{})}}}
+// ===== JOYSTICK de toque (mesma ideia do 01.js: base fixa, zona morta de 12%, intensidade = distância do centro) =====
+// Só afeta de onde vem o alvo (tx,ty) enviado à simulação; a simulação, o log e a pontuação continuam idênticos.
+const JZ=0.18,JCURVA=1.5; // zona morta (fração do raio; o 01.js usa 0.12) e curva: <1 de deflexão = movimento fino, 1 = velocidade máxima
+const joyZona=(x,y)=>LAND?x<FX:(y>=VH+90&&x<ATK.x-ATK.r*1.5); // área onde o polegar pode começar o arrasto (maior que o desenho)
+function joyMove(e){const[x,y]=xy(e),dx=x-JOY.x,dy=y-JOY.y,d=Math.sqrt(dx*dx+dy*dy)||0,r=JOY.r;
+ if(d>0){jdx=dx/d;jdy=dy/d}
+ const k=d>r?r/d:1;jkx=dx*k;jky=dy*k;
+ const f=Math.min(1,d/(r*.95)); // força máxima um pouco antes da borda
+ jm=f<JZ?0:Math.pow((f-JZ)/(1-JZ),JCURVA)}
+// ===== DIREÇÃO SUAVE (joystick e teclado) =====
+// A nave tem um "rumo" que gira no máximo STEER_W rad/s em direção ao que você pede, e reduz a velocidade em curvas fechadas.
+// Fica na ENTRADA: só calcula o alvo (tx,ty) que já era enviado à simulação e gravado no log, então a simulação e a verificação não mudam.
+// Para ajustar o "peso" da nave: STEER_W menor = vira mais devagar (mais pesada); maior = mais ágil.
+const STEER_W=3.6,STEER_K=.14,STEER_VMIN=.45;
+function steer(vx,vy,m){
+ const want=Math.atan2(vy,vx);let rem=0;
+ if(hs<.02)hA=want; // parada: aponta direto para onde você empurrou
+ else{let d=want-hA;d=Math.atan2(Math.sin(d),Math.cos(d));
+  const mx=STEER_W*DT/1000,a=Math.abs(d)*STEER_K;hA+=Math.sign(d)*Math.min(a,mx);rem=d-Math.sign(d)*Math.min(a,mx)}
+ const tg=m*(STEER_VMIN+(1-STEER_VMIN)*Math.max(0,Math.cos(rem))); // curva fechada = mais lento
+ hs=tg<hs?tg:hs+(tg-hs)*.3; // freia na hora, acelera suave
+ tx=cl(Math.round((S.x+Math.cos(hA)*hs*PV)*10)/10,0,WW);ty=cl(Math.round((S.y+Math.sin(hA)*hs*PV)*10)/10,0,WH-8)}
+function parar(){hs=0;if(S){tx=Math.round(S.x*10)/10;ty=Math.round(S.y*10)/10}}
+function joyAlvo(){if(jp<0||!S)return;
+ if(jm>0)steer(jdx,jdy,jm);else parar()}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{const[x,y]=xy(e),ci=celAt(x,y);if(ci>=0){sel=ci;return}
+ if(PC)return;
+ if((x-ATK.x)**2+(y-ATK.y)**2<(ATK.r*1.3)**2){fbp=e.pointerId;cv.setPointerCapture(e.pointerId);return} // botão ATIRAR (segura para repetir)
+ if(jp<0&&joyZona(x,y)){jp=e.pointerId;ptr=0;cv.setPointerCapture(e.pointerId);joyMove(e);return} // joystick
+ if(e.pointerType!=='mouse')return; // com o dedo, o campo não move a nave: só o joystick
+ if(x<FX||x>=FX+VW||y<FY||y>=FY+VH)return;
+ fm=1;mpid=e.pointerId;cv.setPointerCapture(e.pointerId);mover(e)}); // mouse num aparelho de toque: clique atira e arrasta
+const solta=e=>{if(e.pointerId===fbp)fbp=-1;if(e.pointerType==='mouse')fm=0;
+ if(e.pointerId===jp){jp=-1;jm=0;jkx=jky=0;parar()}
+ if(e.pointerId===mpid){mpid=-1;if(e.pointerType!=='mouse'){ptr=0;if(S){tx=Math.round(S.x);ty=Math.round(S.y)}}}};
+cv.addEventListener('pointerup',solta);cv.addEventListener('pointercancel',solta);
+cv.addEventListener('pointermove',e=>{if(PC)return;if(e.pointerId===jp){joyMove(e);return}if(e.pointerType==='mouse'||e.pointerId===mpid)mover(e)});
+onkeydown=e=>{const k=e.key.toLowerCase();keys[k]=1;if(e.key==='Escape'&&run&&!tut)pedirSair();if(k>='1'&&k<='7')sel=+k-1;if(e.key===' '){fk=1;e.preventDefault()}};onkeyup=e=>{keys[e.key.toLowerCase()]=0;if(e.key===' ')fk=0};
+function alvo(){const x=(keys.arrowright||keys.d?1:0)-(keys.arrowleft||keys.a?1:0),y=(keys.arrowdown||keys.s?1:0)-(keys.arrowup||keys.w?1:0);
+ if(x||y){const l=Math.sqrt(x*x+y*y);steer(x/l,y/l,1);ptr=0;kb=1}else if(kb){kb=0;parar()}}
+function tick(){alvo();if(ptr)ponteiro();joyAlvo();if(tut)tutStep();const f=(fbp>=0||fm||fk)?1:0;if(tx!==ltx||ty!==lty||sel!==lsel||f!==lf){log.push([S.k,tx,ty,sel,f]);ltx=tx;lty=ty;lsel=sel;lf=f}const cd0=S.cd;step(S,tx,ty,sel,f);somTick(cd0)}
+function loop(n){if(!run)return;requestAnimationFrame(loop);
+ acc+=Math.min(n-last,250);last=n;let q=0;
+ while(acc>=DT&&(tut||S.k<TICKS)&&q++<15){acc-=DT;tick()}
+ acc=Math.min(acc,50);draw();if(!tut&&S.k>=TICKS)fim()}
+// escudo desenhado (no lugar do emoji de escudo)
+function escIco(x,y,sz,c){g.save();g.translate(x,y);g.scale(sz/24,sz/24);g.fillStyle=c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.moveTo(0,-11);g.lineTo(9,-7);g.lineTo(9,0);g.quadraticCurveTo(8,8,0,11);g.quadraticCurveTo(-8,8,-9,0);g.lineTo(-9,-7);g.closePath();g.globalAlpha=.85;g.fill();g.globalAlpha=1;g.stroke();g.restore()}
+function img(n,x,y,s,fb){const im=IM[n];if(im)g.drawImage(im,x-s/2,y-s/2,s,s);else fb()}
+let fl=0,pfx=0,pfy=0,pk=0;const FC=['#7df','#cfd','#6e6','#fd3','#39f','#f83']; // cor do miolo da chama por nave (mesma ordem de NAVES)
+function flama(nw){ // desenhada atrás da nave, já girada junto com ela; cresce com a velocidade e tremula sempre. Só visual
+ if(S.k!==pk){const n=Math.max(1,S.k-pk),m=Math.min(1,Math.hypot(S.x-pfx,S.y-pfy)/(PV*n));fl+=(m-fl)*.35;pfx=S.x;pfy=S.y;pk=S.k}
+ const f=1+.16*Math.sin(nw*.045)+.1*Math.sin(nw*.11),L=(7+22*fl)*f,w=4+3*fl,x0=-17,c=FC[naveIdx];
+ const gr=g.createLinearGradient(x0,0,x0-L,0);gr.addColorStop(0,'#fff');gr.addColorStop(.35,c);gr.addColorStop(1,'rgba(255,120,0,0)');
+ g.fillStyle=gr;g.beginPath();g.moveTo(x0,-w);g.quadraticCurveTo(x0-L*.6,-w*.6,x0-L,0);g.quadraticCurveTo(x0-L*.6,w*.6,x0,w);g.closePath();g.fill();
+ if(!slow){g.globalAlpha=.35;g.fillStyle=c;g.beginPath();g.arc(x0-2,0,w*1.6,0,7);g.fill();g.globalAlpha=1}}
+function setas(){for(const o of S.bo)if(o.on===1){const bx=o.x-camX,by=o.y-camY;
+  if(bx<-20||bx>VW+20||by<-20||by>VH+20){const px=cl(bx,16,VW-16),py=cl(by,16,VH-16);
+   g.save();g.translate(px,py);g.rotate(Math.atan2(by-py,bx-px));g.fillStyle=COR[o.e];g.globalAlpha=.9;g.beginPath();g.moveTo(11,0);g.lineTo(-7,-8);g.lineTo(-7,8);g.fill();g.strokeStyle='#fff';g.lineWidth=1.5;g.stroke();g.restore()}}}
+function mini(){const mw=150,mh=Math.round(mw*WH/WW),mx=VW-mw-8,my=8,f=mw/WW;
+ g.fillStyle='rgba(5,10,30,.7)';g.fillRect(mx,my,mw,mh);g.strokeStyle='#3a6a9a';g.lineWidth=1;g.strokeRect(mx+.5,my+.5,mw-1,mh-1);
+ for(const c of S.cr)if(c.on===1){g.fillStyle=COR[c.e];g.fillRect(mx+c.x*f-1.5,my+c.y*f-1.5,3,3)}
+ g.lineWidth=1.5;for(const c of S.sp)if(c.on===1){g.strokeStyle=COR[c.e];g.beginPath();g.arc(mx+c.x*f,my+c.y*f,4,0,7);g.stroke()}
+ for(const o of S.bo)if(o.on===1){g.fillStyle='#f33';g.beginPath();g.arc(mx+o.x*f,my+o.y*f,3.2,0,7);g.fill();g.strokeStyle=COR[o.e];g.stroke()}
+  g.fillStyle='#fff';g.beginPath();g.arc(mx+S.x*f,my+S.y*f,2.6,0,7);g.fill()}
+function draw(){atualizarX();cam();g.setTransform(RS,0,0,RS,0,0);g.fillStyle='#05060f';g.fillRect(0,0,CVW,CVH);g.save();g.translate(FX,FY);g.beginPath();g.rect(0,0,VW,VH);g.clip();g.drawImage(BG,camX,camY,VW,VH,0,0,VW,VH);
+ // giro visual igual ao 01.js: a nave gira para a direção em que aponta/anda, suavizado (tau 0,035 s); só desenho
+ const nw=performance.now(),dt=Math.min((nw-angT)/1000,.25);angT=nw;
+ tAng=Math.atan2(S.ay,S.ax);
+ let da=tAng-angV;da=Math.atan2(Math.sin(da),Math.cos(da));angV+=da*(1-Math.exp(-dt/.035));g.textAlign='center';g.font='16px system-ui';g.save();g.translate(-camX,-camY);g.strokeStyle='#2c5a9a';g.lineWidth=4;g.strokeRect(0,0,WW,WH); // tudo daqui até o restore() é desenhado no MUNDO
+ for(const c of S.cr)if(c.on===1){if(S.k-c.t>PD-60&&(S.k>>3&1))g.globalAlpha=.45;
+  img(CRIS[c.e],c.x,c.y,40,()=>{g.fillStyle=COR[c.e];g.fillRect(c.x-10,c.y-10,20,20)});g.globalAlpha=1}
+ for(const c of S.sp)if(c.on===1){if(S.k-c.t>SD-60&&(S.k>>3&1))g.globalAlpha=.45;
+  img(CRIS[c.e],c.x,c.y,36,()=>{g.fillStyle=COR[c.e];g.fillRect(c.x-9,c.y-9,18,18)});
+  g.strokeStyle=COR[c.e];g.lineWidth=3;g.beginPath();g.arc(c.x,c.y,26,0,7);g.stroke();escIco(c.x,c.y-34,20,COR[c.e]);g.globalAlpha=1}
+ for(const o of S.bo)if(o.on===1){// giro igual ao do 01.js para bots (tau 0,08 s): encara a nave; virado p/ a esquerda espelha para não ficar de cabeça para baixo
+  const ta=Math.atan2(S.y-o.y,S.x-o.x);if(o.va===undefined)o.va=ta;let dd=ta-o.va;dd=Math.atan2(Math.sin(dd),Math.cos(dd));o.va+=dd*(1-Math.exp(-dt/.08));
+  g.save();g.translate(o.x,o.y);let oa=o.va;if(Math.cos(oa)<0){g.scale(1,-1);oa=-oa}g.rotate(oa);
+  img(IM[DRON[o.e]]?DRON[o.e]:'energinum.png',0,0,44,()=>{g.fillStyle='#f45';g.beginPath();g.arc(0,0,14,0,7);g.fill()});g.restore();
+  g.strokeStyle=COR[o.e];g.lineWidth=3;g.beginPath();g.arc(o.x,o.y,26,0,7);g.stroke();
+  g.fillText(EMO[o.e],o.x,o.y-32);g.fillStyle='#222';g.fillRect(o.x-18,o.y+30,36,4);g.fillStyle=COR[o.e];g.fillRect(o.x-18,o.y+30,36*o.hp/6,4)}
+ for(const u of S.bb)pjDraw(g,u,S.k);g.globalAlpha=1;
+ for(const u of S.bl){if(u.e>5){g.strokeStyle='#fff';g.lineWidth=3;g.lineCap='round';g.beginPath();g.moveTo(u.x,u.y);g.lineTo(u.x-u.vx*1.2,u.y-u.vy*1.2);g.stroke();g.lineCap='butt'}else pjDraw(g,u,S.k,PJ_EU)}
+  if(!(S.k<S.iv&&(S.k>>2&1))){g.save();g.translate(S.x,S.y);let a=angV;if(Math.cos(a)<0){g.scale(1,-1);a=-a} // como no 01.js: virado p/ a esquerda espelha, p/ não ficar de cabeça para baixo
+  g.rotate(a);flama(nw);img(NAVES[naveIdx],0,0,44,()=>{g.fillStyle='#fff';g.beginPath();g.moveTo(14,0);g.lineTo(-11,-11);g.lineTo(-11,11);g.fill()});g.restore()}
+ if(S.sh>0){g.strokeStyle=COR[S.se];g.lineWidth=3;g.globalAlpha=.5+.1*S.sh;g.beginPath();g.arc(S.x,S.y,30,0,7);g.stroke();g.globalAlpha=1}
+ g.restore();setas();if(!tut)mini();
+ g.textAlign='left';g.fillStyle='#cfe';g.font='20px system-ui';
+ if(LAND&&PC)g.fillText(hudTxt()[2],14,VH-12);
+ if(tut){const T=TXT[ts];g.fillStyle='#000b';g.fillRect(30,44,VW-60,64);g.textAlign='center';g.fillStyle='#fff';g.font='bold 17px system-ui';g.fillText(T[0],VW/2,70,VW-80);g.font='15px system-ui';g.fillStyle='#bde';g.fillText(T[1],VW/2,95,VW-80);g.textAlign='left';g.font='20px system-ui';g.fillStyle='#cfe';g.fillText('TUTORIAL',14,28)}
+ else if(LAND&&PC){const h=hudTxt();g.fillText(h[0]+'   '+h[1],14,28)}
+ g.restore();paineis()}
+function hudTxt(){return[(am?'AMISTOSO  ':'')+'Pontos '+S.s+'   Combo x'+S.cb,'Batidas '+S.h+'   '+Math.ceil((TICKS-S.k)/60)+'s','Escudo: '+(S.sh>0?EMO[S.se]+' '+'●'.repeat(S.sh):'nenhum')]}
+// painéis fora do campo: lista de cristais, botão ATIRAR (toque) ou dicas de teclado (PC)
+function paineis(){g.fillStyle='#0a0d22';
+ if(LAND){g.fillRect(0,FY,FX,VH);g.fillRect(FX+VW,FY,CVW-FX-VW,VH)}else g.fillRect(0,VH,CVW,CVH-VH);
+ g.strokeStyle='#234';g.lineWidth=1;g.strokeRect(FX+.5,FY+.5,VW-1,VH-1);g.textAlign='center';
+ for(let i=0;i<7;i++){const[cx,cy,cw,ch]=cel(i),hl=tut&&tb&&i<6&&(ts===2||ts===3)&&FORTE[i].includes(tb.e)&&(S.k>>4&1),mx=cx+cw/2;
+  g.fillStyle=i===sel?'#14204a':'#0b1230';g.fillRect(cx+2,cy+2,cw-4,ch-4);
+  g.strokeStyle=hl?'#5f5':i===sel?'#fff':'#234';g.lineWidth=hl||i===sel?3:1;g.strokeRect(cx+2,cy+2,cw-4,ch-4);
+  if(i<6){img(CRIS[i],mx,cy+ch*.36,30,()=>{});g.fillStyle=COR[i];g.font='16px system-ui';g.fillText(EMO[i]+' x'+S.am[i],mx,cy+ch*.8)}
+  else{g.fillStyle='#fff';g.font='14px system-ui';g.fillText('Normal ∞',mx,cy+ch*.58)}
+  g.fillStyle='#789';g.font='11px system-ui';g.textAlign='left';g.fillText(String(i+1),cx+8,cy+16);g.textAlign='center'}
+ if(!LAND&&PC){const h=hudTxt(),y0=VH+84+38;g.textAlign='left';g.fillStyle='#cfe';g.font='22px system-ui';if(tut)g.fillText(h[2],14,y0);else{g.fillText(h[0],14,y0);g.fillText(h[1],14,y0+30);g.fillText(h[2],14,y0+60)}g.textAlign='center'}
+ if(!PC){hudToque();joyDraw()}
+ if(!PC){const on=fbp>=0||fm||fk,r=ATK.r;g.fillStyle=on?'rgba(255,255,255,.3)':'rgba(255,255,255,.12)';g.beginPath();g.arc(ATK.x,ATK.y,r,0,7);g.fill();g.strokeStyle=sel<6?COR[sel]:'#fff';g.lineWidth=3;g.stroke();
+  g.fillStyle='#fff';g.font='bold 15px system-ui';g.fillText('ATIRAR',ATK.x,ATK.y+(sel<6?r*.43:5));if(sel<6){g.font='24px system-ui';g.fillText(EMO[sel],ATK.x,ATK.y-2)}}
+ else{g.fillStyle='#9ab';g.font='12px system-ui';
+  if(LAND){const px=FX+VW+(CVW-FX-VW)/2;['Setas / WASD','mover','','Espaço','atirar','','Teclas 1–7','cristal'].forEach((t,k)=>g.fillText(t,px,FY+66+k*18));
+   // quadro de vantagens (só preenche o espaço livre do painel direito; não altera a arena)
+   const pw=CVW-FX-VW,bw=Math.min(pw-12,112);g.fillStyle='#9ab';g.font='bold 12px system-ui';g.fillText('Quem vence quem',px,FY+228);
+   for(let a=0;a<6;a++){const ry=FY+256+a*28;g.fillStyle='#0b1230';g.fillRect(px-bw/2,ry-19,bw,25);g.strokeStyle=COR[a];g.lineWidth=1;g.strokeRect(px-bw/2+.5,ry-18.5,bw-1,24);
+    g.fillStyle='#cfe';g.font='15px system-ui';g.fillText(EMO[a]+' → '+FORTE[a].map(i=>EMO[i]).join(' '),px,ry-1)}
+   g.fillStyle='#789';g.font='11px system-ui';g.fillText('seta = vence de uma vez',px,FY+256+6*28)}
+  else g.fillText('Setas/WASD mover  ·  Espaço atirar  ·  1–7 cristal',CVW/2,CVH-40)}
+ g.font='16px system-ui'}
+function joyDraw(){const{x,y,r}=JOY,on=jp>=0;g.lineWidth=3;
+ g.fillStyle=on?'rgba(0,255,255,.16)':'rgba(0,255,255,.08)';g.beginPath();g.arc(x,y,r,0,7);g.fill();
+ g.strokeStyle=on?'rgba(0,255,255,.85)':'rgba(0,255,255,.5)';g.stroke();
+ g.lineWidth=1.5;g.strokeStyle='rgba(0,255,255,.22)';g.beginPath();g.arc(x,y,r*.55,0,7);g.stroke();
+ const kr=r*.42,kx=x+(on?jkx:0),ky=y+(on?jky:0);
+ g.fillStyle=on?'rgba(120,255,255,.7)':'rgba(0,255,255,.4)';g.beginPath();g.arc(kx,ky,kr,0,7);g.fill();
+ g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=2;g.stroke()}
+// placar no painel (celular/tablet): libera o campo de visão
+function hudToque(){const t=Math.ceil((TICKS-S.k)/60),esc='Escudo: '+(S.sh>0?EMO[S.se]+' '+'●'.repeat(S.sh):'nenhum');g.textAlign='left';
+ if(LAND){let y=HUDP.y+16,x=HUDP.x;g.fillStyle='#cfe';
+  if(tut){g.font='14px system-ui';g.fillText(esc,x,y);return}
+  if(am){g.font='bold 12px system-ui';g.fillStyle='#7ff';g.fillText('AMISTOSO',x,y);y+=20;g.fillStyle='#cfe'}
+  g.font='12px system-ui';g.fillStyle='#789';g.fillText('Pontos',x,y);y+=24;g.font='bold 24px system-ui';g.fillStyle='#fff';g.fillText(String(S.s),x,y,FX-16);y+=24;
+  g.font='15px system-ui';g.fillStyle='#cfe';g.fillText('Combo x'+S.cb,x,y);y+=21;g.fillText('Batidas '+S.h,x,y);y+=21;g.fillText('Tempo '+t+'s',x,y);y+=21;
+  g.font='13px system-ui';g.fillText(esc,x,y,FX-14)}
+ else{const x=HUDP.x,w=ATK.x-ATK.r-12-x;let y=HUDP.y+14;g.fillStyle='#cfe';
+  if(tut){g.font='17px system-ui';g.fillText(esc,x,y+8,w);return}
+  g.font='bold 20px system-ui';g.fillStyle='#fff';g.fillText((am?'AMISTOSO  ':'')+S.s+' pts',x,y,w);y+=26;
+  g.font='16px system-ui';g.fillStyle='#cfe';g.fillText('Combo x'+S.cb+'  ·  Batidas '+S.h,x,y,w);y+=24;g.fillText('Tempo '+t+'s',x,y,w);y+=24;g.font='15px system-ui';g.fillText(esc,x,y,w)}
+ g.textAlign='center'}
+function preparar(a){am=a;SEED=SEED_T;S=mk();log=[];angV=tAng=0;angT=performance.now();acc=0;tx=CX;ty=CY;ptr=0;ltx=lty=lsel=lf=-1;fbp=-1;jp=-1;jm=0;jkx=jky=0;hs=0;somReset();fm=0;fk=0;sel=6;pausas=0;mostra('none');draw()}
+function largar(){ini=0;run=1;musicaLigar();last=performance.now();angT=performance.now();requestAnimationFrame(loop)}
+// amistoso começa direto; torneio: reserva a tentativa (servidor), mostra "prepare-se" e conta 5 s antes de largar
+async function iniciar(a){
+ if(a){preparar(1);largar();return}
+ partida=null;let n=0;
+ if(!teste()){$('cdm').textContent='';$('cdn').textContent='';$('cds').textContent='Reservando sua tentativa... (precisa de internet)';cdv.style.display='flex';
+  n=await reservar();
+  if(!n){cdv.style.display='none';ini=0;mostra('flex');if(window.CW&&CW.user)await carregar(CW.user.uid);if(lib())abrirLobby('Não foi possível reservar a tentativa agora (sem conexão ou sem tentativas). Confira e tente de novo.');return}
+  BL.usadas=n;partida={tk:BL.tk,n:String(n)}}
+ preparar(0);
+ contagem(n?'Tentativa '+n+' de 3 · vale a melhor das 3. Deixe o dedo/mouse posicionado: a partida de 90 s começa já.':'Modo teste: esta partida não conta tentativa.',largar)}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){fbp=-1;jp=-1;jm=0;jkx=jky=0;updateEngineSound(false,false)}if(document.hidden&&run)pausas++;else last=performance.now()});
+function fim(){run=0;musicaDesligar();sairFechar();updateEngineSound(false,false);draw();
+ if(am){menu.innerHTML='<h2>Amistoso: '+S.s+' pontos</h2><p>Batidas: '+S.h+'<br>Treino não vale prêmio. É a mesma partida do torneio (mesmo mapa e mesma sequência): treine à vontade.</p><button onclick="location.reload()">Treinar de novo</button>';mostra('flex');return}
+ const res={v:5,seed:SEED,s:S.s,h:S.h,k:S.k,pausas,nave:NN[naveIdx],log},ok=verificar(log,S.k).s===S.s; // k: tick final (menor que 5400 se o jogador encerrou antes)
+ const cod=btoa(JSON.stringify(res));
+ if(partida){const p=partida;partida=null;fimTorneio(res,cod,ok,p,{fez:0})}
+ else{menu.innerHTML='<h2>Fim (teste)! '+S.s+' pontos</h2><p>Batidas: '+S.h+(ok?'':' (falha na verificação)')+'<br>Modo teste do admin: nada foi enviado ao ranking.</p><textarea readonly id="cod"></textarea><button id="cp">Copiar código</button><button onclick="location.reload()">Jogar de novo</button>';
+  mostra('flex');document.getElementById('cod').value=cod;
+  document.getElementById('cp').onclick=()=>{const t=document.getElementById('cod');t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value)}}
+ if(window.CW_TORNEIO&&CW_TORNEIO.aoFinalizar)CW_TORNEIO.aoFinalizar(res)}
+const TXT=[['Mova a nave com o joystick (círculo à esquerda)','Quanto mais longe do centro, mais rápido. A nave aponta para onde você anda'],
+ ['Colete o cristal 💧 para ganhar munição','Cada cristal dá munição do seu elemento'],
+ ['Bot de FOGO 🔥! Água 💧, Gelo ❄️ e Vento 🌪️ vencem Fogo','Escolha o cristal no painel, aponte a nave para o bot e toque em ATIRAR (ou Espaço)'],
+ ['Agora um bot de PLANTA 🌿: Fogo 🔥 e Gelo ❄️ vencem Planta','Troque de cristal, mire e atire: a escolha certa derruba o bot de uma vez'],
+ ['Cristal de ESCUDO: pegue o escudo de Água 💧','Ele protege dos tiros dos bots. Cada escudo é forte contra alguns elementos'],
+ ['O bot de FOGO 🔥 atira em você! Desvie e derrote-o','Seu escudo de Água é forte contra Fogo: aguenta mais tiros (●●●●)'],
+ ['Tutorial concluído!','Pegue o escudo certo para o próximo inimigo. Boa sorte!']];
+if(PC){TXT[0]=['Mova a nave com as setas ou WASD','A nave aponta para onde você anda'];
+ TXT[2][1]='Escolha o cristal (teclas 1–7), aponte a nave para o bot e aperte ESPAÇO';}
+const sk=document.getElementById('sk');
+const seen=()=>{try{return localStorage.getItem('cwTut')}catch(e){return 1}};
+function nbot(e,sh){const o={t:S.k,x:cl(S.x+(S.x<CX?380:-380),20,WW-20),y:cl(S.y-150,20,WH-20),e,v:.3,hp:6,s:e%4,on:0,cd:sh?S.k+90:1e9,fr:170,bs:2.2};S.bo.push(o);for(let i=0;i<6;i++)S.am[i]=Math.max(S.am[i],3);return o}
+function tutStep(){
+ if(ts===0){if(Math.abs(S.x-CX)+Math.abs(S.y-CY)>150)ts=1}
+ else if(ts===1){if(!S.cr.some(c=>c.on<2))S.cr.push({t:S.k,x:cl(Math.round(S.x+(S.x<CX?160:-160)),30,WW-30),y:cl(Math.round(S.y),40,WH-40),e:2,on:0});
+  if(S.am[2]>=5){ts=2;tb=nbot(0)}}
+ else if(ts===2){if(tb.hp<=0){ts=3;tb=nbot(5)}else if(tb.on===2)tb=nbot(0)}
+ else if(ts===3){if(tb.hp<=0)ts=4;else if(tb.on===2)tb=nbot(5)}
+ else if(ts===4){if(!S.sp.some(c=>c.on<2))S.sp.push({t:S.k,x:cl(Math.round(S.x+(S.x<CX?160:-160)),30,WW-30),y:cl(Math.round(S.y),40,WH-40),e:2,on:0});
+  if(S.sh>0){ts=5;tb=nbot(0,1)}}
+ else if(ts===5){if(S.sh<1&&tb.hp>0){S.se=2;S.sh=4}
+  if(tb.hp<=0)ts=6;else if(tb.on===2)tb=nbot(0,1)}
+ else if(++td>260)endTut()}
+function tutorial(p){tpend=p;tut=1;ts=0;td=0;tb=null;S=mk();S.cr=[];S.bo=[];S.sp=[];S.am=[3,3,3,3,3,3];log=[];angV=tAng=0;angT=performance.now();acc=0;tx=CX;ty=CY;ptr=0;ltx=lty=lsel=lf=-1;fbp=-1;jp=-1;jm=0;jkx=jky=0;hs=0;somReset();fm=0;fk=0;sel=6;am=1;
+ mostra('none');sk.style.display='block';run=1;musicaLigar();last=performance.now();requestAnimationFrame(loop)}
+function endTut(){if(!tut)return;tut=0;run=0;musicaDesligar();updateEngineSound(false,false);sk.style.display='none';try{localStorage.setItem('cwTut',1)}catch(e){}
+ const p=tpend;tpend=null;setTimeout(()=>{if(p!==null)iniciar(p);else mostra('flex')},100)} // atraso evita dois laços de animação ao mesmo tempo
+sk.onclick=endTut;
+const comecar=a=>pronto.then(()=>{if(seen())iniciar(a);else tutorial(a)});
+document.getElementById('bu').onclick=()=>pronto.then(()=>tutorial(null));
+// ===== Inscrição paga (Pix via Mercado Pago) =====
+const API='https://cw-pagamento.maxmilianomaia20.workers.dev'; // <- URL do seu Worker, sem barra no fim
+const TID=String(SEED_T),ADMIN_UID='nhPfNB7CrpbUs2Y8mIJN2bx6hpm1';
+window.CW_TORNEIO=window.CW_TORNEIO||{};
+let BL=null,refPago=null,pid=null,tmr=null,carga=0,partida=null,ini=0;
+// Bilhete = 1 pagamento = 3 tentativas. 1º bilhete usa tid = semente (compatível com quem já pagou); os seguintes: semente_2, semente_3...
+const tkId=i=>i<2?TID:TID+'_'+i;
+const teste=()=>/[?&]teste=1/.test(location.search)&&window.CW&&CW.user&&CW.user.uid===ADMIN_UID; // ?teste=1 só vale para o admin: partidas livres, fora do ranking
+const lib=()=>!!(BL&&BL.tk)||!!teste();
+document.getElementById('ba').onclick=()=>comecar(1);
+const bt=document.getElementById('bt'),$=i=>document.getElementById(i);
+function atualizarTorneio(){const c=window.CW||{};CW_TORNEIO.liberado=!!(BL&&BL.tk);let t,off=0;
+ if(!c.pronto){t='Torneio (verificando conta...)';off=1}
+ else if(!c.user)t='Torneio: entrar na conta';
+ else if(!c.nome)t='Torneio: escolher nome de usuário';
+ else if(teste()&&!(BL&&BL.tk))t='Torneio (modo teste)';
+ else if(!BL){t='Torneio (verificando ingresso...)';off=1}
+ else if(BL.erro)t='Torneio: erro ao verificar o ingresso (toque para tentar de novo)';
+ else if(!BL.tk)t=BL.hist?'Comprar novo ingresso':'Torneio: comprar ingresso';
+ else t='Torneio'
+ bt.disabled=!!off;bt.textContent=t}
+// procura o bilhete em uso: o primeiro pago que ainda tem tentativas; se todos acabaram, BL.prox é o próximo a pagar
+async function carregar(uid){const eu=++carga,db=firebase.database();let i=1,prev=0,r;
+ if(refPago){refPago.off();refPago=null}
+ try{for(;;i++){const tk=tkId(i),p=(await db.ref('torneioPagos/'+tk+'/'+uid).once('value')).val();
+   if(!p){r={tk:null,prox:tk,hist:prev};break}
+   const u=(await db.ref('torneioTentativas/'+tk+'/'+uid).once('value')).val()||0;
+   if(u<3){r={tk,usadas:u,hist:prev};break}
+   prev=1}}
+ catch(e){r={tk:null,erro:1}}
+ if(eu!==carga)return;BL=r;
+ if(BL.prox)vigiar(uid);
+ atualizarTorneio()}
+// o Firebase avisa em tempo real quando o servidor grava o pagamento do próximo bilhete
+function vigiar(uid){refPago=firebase.database().ref('torneioPagos/'+BL.prox+'/'+uid);
+ refPago.on('value',s=>{if(s.val()){fecharPg();carregar(uid)}},()=>{})}
+addEventListener('cw-conta',e=>{carga++;if(refPago){refPago.off();refPago=null}BL=null;const u=e.detail.user;atualizarTorneio();if(u)carregar(u.uid)});
+if(window.CW&&CW.pronto)dispatchEvent(new CustomEvent('cw-conta',{detail:{user:CW.user,nome:CW.nome}}));
+atualizarTorneio();
+const pg=document.createElement('div');
+pg.className='pn';pg.style.cssText='position:fixed;inset:0;z-index:99995;background:#05060ff2;display:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;text-align:center;padding:16px;overflow:auto';
+pg.innerHTML='<h2>Ingresso do torneio</h2><p style="margin:0;max-width:420px">Pague <b>R$ 1,00</b> no Pix e ganhe <b>3 tentativas</b> (vale a melhor pontuação). No app do seu banco: abra o app do seu banco, escolha Pix e leia o QR Code (ou use o "copia e cola").</p><img id="pq" alt="QR Code Pix" style="width:220px;height:220px;background:#fff;padding:8px;border-radius:10px;display:none"><textarea id="pc" readonly></textarea><button id="pcp">Copiar código Pix</button><small id="ps"></small><button id="pj">Já paguei</button><button id="px">Fechar</button>';
+document.body.appendChild(pg);
+const ps=t=>$('ps').textContent=t;
+function fecharPg(){pg.style.display='none';clearInterval(tmr)}
+const conf=()=>pid&&fetch(API+'/confirmar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:pid})}).catch(()=>{});
+async function abrirPg(){pg.style.display='flex';$('pq').style.display='none';$('pc').value='';pid=null;ps('Gerando Pix...');let j={};
+ try{if(!BL||!BL.prox){ps('Aguarde: verificando seu ingresso. Tente de novo em instantes.');return}
+  if(API.includes('SEU-USUARIO')){ps('Falta configurar a URL do Worker (constante API no torneio.html).');return}
+  const idToken=await CW.user.getIdToken();
+  const r=await fetch(API+'/criar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({idToken,tid:BL.prox})});j=await r.json();
+  if(j.jaPago){ps('Sua inscrição já está paga. Aguarde um instante...');return}
+  if(!r.ok||!j.qr)throw 0;
+  pid=j.id;$('pq').src='data:image/png;base64,'+j.qr;$('pq').style.display='block';$('pc').value=j.copia;ps('Aguardando o pagamento... esta tela libera sozinha em instantes.');clearInterval(tmr);tmr=setInterval(conf,6000)
+ }catch(e){ps('Não foi possível gerar o Pix agora ('+(j.erro?j.erro+(j.detalhe?': '+j.detalhe:''):'sem resposta do Worker: URL errada, CORS ou Worker fora do ar')+').')}}
+$('pcp').onclick=()=>{$('pc').select();navigator.clipboard&&navigator.clipboard.writeText($('pc').value)};
+$('pj').onclick=async()=>{if(!pid)return;ps('Conferindo...');
+ try{await fetch(API+'/confirmar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:pid})});ps('Se o pagamento foi aprovado, a tela libera em instantes.')}catch(e){ps('Sem conexão. Tente de novo.')}};
+$('px').onclick=fecharPg;
+// ===== Torneio: lobby, contagem, tentativas e ranking =====
+const painel=h=>{const d=document.createElement('div');d.className='pn';d.style.cssText='position:fixed;inset:0;z-index:99995;background:#05060ff2;display:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;text-align:center;padding:16px;overflow:auto';d.innerHTML=h;document.body.appendChild(d);return d};
+const tp=painel('<h2>Torneio</h2><p id="tl" style="margin:0;max-width:440px"></p><small id="tm" style="max-width:440px"></small><button id="tgo">Começar</button><button id="trk">Ranking do torneio</button><button id="tvx">Voltar</button>');
+const rk=painel('<h2>Ranking do torneio</h2><small style="max-width:460px">Só aparecem resultados já conferidos pelo servidor (pode levar alguns minutos depois da partida).</small><div id="rl" style="width:min(92vw,460px);text-align:left"></div><button id="rx">Fechar</button>');
+const cdv=document.createElement('div');cdv.id='cdv';cdv.innerHTML='<div id="cdm"></div><b id="cdn"></b><div id="cds"></div>';document.body.appendChild(cdv);
+async function abrirLobby(msg){tp.style.display='flex';$('tgo').disabled=false;const adm=teste()&&!(BL&&BL.tk);
+ $('tl').innerHTML=adm?'Modo teste (admin): partidas livres, sem gastar tentativa e fora do ranking.':'Tentativa <b>'+(BL.usadas+1)+' de 3</b> do seu ingresso. Vale a <b>melhor pontuação</b> entre as 3.';
+ $('tm').textContent=msg||'Ao tocar em Começar, a tentativa é descontada e uma contagem de 5 segundos prepara você. Se fechar ou recarregar a página durante a partida, a tentativa é perdida.';
+ if(!adm)try{const v=(await firebase.database().ref('torneioRanking/'+TID+'/'+CW.user.uid).once('value')).val();
+  $('tl').innerHTML+='<br>'+(v?'Sua melhor pontuação: <b>'+(+v.pontos)+'</b>':'Você ainda não pontuou.')}catch(e){}}
+$('tgo').onclick=()=>{if(ini)return;ini=1;$('tgo').disabled=true;tp.style.display='none';comecar(0)};
+$('trk').onclick=()=>abrirRk();$('tvx').onclick=()=>{tp.style.display='none'};
+$('br0').onclick=()=>abrirRk();$('rx').onclick=()=>{rk.style.display='none'};
+// "Prepare-se" + 5 s; só depois a partida começa (o relógio de 90 s só roda em largar())
+function contagem(info,cb){const t0=performance.now(),N=$('cdn');cdv.style.display='flex';$('cdm').textContent='PREPARE-SE!';$('cds').textContent=info;N.style.fontSize='';N.textContent='5';
+ const iv=setInterval(()=>{const r=5-Math.floor((performance.now()-t0)/1000);
+  if(r>0){if(N.textContent!==String(r))N.textContent=r}
+  else{clearInterval(iv);N.style.fontSize='min(18vw,18vh)';N.textContent='VAI!';setTimeout(()=>{cdv.style.display='none';cb()},400)}},80)}
+// desconta 1 tentativa no servidor (transação; as regras só aceitam +1 até 3 em bilhete pago). Devolve o nº da tentativa (1..3) ou 0
+function reservar(){return new Promise(ok=>{if(!BL||!BL.tk||!window.CW||!CW.user){ok(0);return}
+ firebase.database().ref('torneioTentativas/'+BL.tk+'/'+CW.user.uid).transaction(v=>{v=v||0;return v>=3?undefined:v+1},(e,c,s)=>ok(!e&&c?s.val():0),false)})}
+// grava a partida (o log fica guardado; o servidor refaz a partida, calcula a pontuação e publica o ranking).
+// O navegador NÃO escreve mais no ranking. Devolve a melhor pontuação já conferida (0 se ainda não houver)
+async function enviar(pontos,p,cod,st,k){const db=firebase.database(),u=CW.user.uid;
+ if(!st.fez){await db.ref('torneioPartidas/'+p.tk+'/'+u+'/'+p.n).set({pontos,cod,k,em:firebase.database.ServerValue.TIMESTAMP});st.fez=1}
+ const cur=(await db.ref('torneioRanking/'+TID+'/'+u).once('value')).val();
+ return cur?+cur.pontos:0}
+async function fimTorneio(res,cod,ok,p,st){const restam=3-(+p.n);
+ menu.innerHTML='<h2>Fim! '+res.s+' pontos</h2><p>Batidas: '+res.h+(ok?'':' (falha na verificação)')+'<br><span id="env">Enviando o resultado...</span></p><div id="ac" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></div>';mostra('flex');
+ const env=$('env'),ac=$('ac'),btn=(t,f)=>{const b=document.createElement('button');b.textContent=t;b.onclick=f;ac.appendChild(b)};
+ let melhor=-1;
+ for(let t=0;t<3&&melhor<0;t++){try{melhor=await enviar(res.s,p,cod,st,res.k)}catch(e){await new Promise(r=>setTimeout(r,1500))}}
+ if(melhor<0){env.textContent='Não foi possível enviar agora (conexão?). Não feche esta página.';btn('Tentar enviar de novo',()=>fimTorneio(res,cod,ok,p,st));return}
+ await carregar(CW.user.uid);
+ env.innerHTML='Resultado enviado: <b>'+res.s+'</b> pontos.<br>Ele entra no ranking depois da conferência automática do servidor (alguns minutos).'+(melhor>0?'<br>Melhor pontuação já conferida: <b>'+melhor+'</b>':'')+'<br>'+(restam>0?'Restam <b>'+restam+'</b> tentativa'+(restam>1?'s':'')+' neste ingresso.':'Você usou as 3 tentativas deste ingresso. Para jogar de novo é preciso comprar um novo ingresso.');
+ if(restam>0)btn('Tentativa '+(+p.n+1)+' de 3',()=>{if(ini)return;ini=1;comecar(0)});else btn('Comprar novo ingresso',()=>abrirPg());
+ btn('Ranking do torneio',()=>abrirRk());btn('Voltar ao menu',()=>location.reload())}
+async function abrirRk(){rk.style.display='flex';const L=$('rl');L.textContent='Carregando...';
+ try{const s=await firebase.database().ref('torneioRanking/'+TID).orderByChild('pontos').limitToLast(30).once('value'),a=[];
+  s.forEach(c=>{a.push(Object.assign({u:c.key},c.val()))});a.reverse();L.textContent='';
+  if(!a.length){L.textContent='Ninguém pontuou ainda. Seja o primeiro!';return}
+  const eu=window.CW&&CW.user&&CW.user.uid,adm=eu===ADMIN_UID;
+  a.forEach((r,i)=>{const d=document.createElement('div'),n=document.createElement('span'),q=document.createElement('b');
+   d.style.cssText='display:flex;gap:8px;padding:6px 8px;border-bottom:1px solid #234;align-items:center'+(r.u===eu?';background:#0b3a40;border-radius:8px':'');n.style.flex='1';
+   n.textContent=((i+1)+'º')+'  '+r.nome;q.textContent=r.pontos;d.appendChild(n);d.appendChild(q);
+   if(adm){const v=document.createElement('button');v.textContent='verificar';v.style.padding='2px 10px';v.onclick=()=>verifRow(r,v);d.appendChild(v)}
+   L.appendChild(d)});
+  if(adm){const vt=document.createElement('button');vt.textContent='verificar todos';vt.style.margin='0 0 8px';
+   vt.onclick=async()=>{vt.disabled=true;for(const b of L.querySelectorAll('div button')){b.click();while(b.textContent==='...')await new Promise(r=>setTimeout(r,100))}vt.disabled=false};
+   L.prepend(vt)}}
+ catch(e){L.textContent='Não foi possível carregar o ranking agora.'}}
+// só admin: refaz a partida gravada e confere com a pontuação do ranking
+async function verifRow(r,el){el.textContent='...';const old=SEED;
+ try{const v=(await firebase.database().ref('torneioPartidas/'+r.tk+'/'+r.u+'/'+r.n).once('value')).val(),d=JSON.parse(atob(v.cod));SEED=SEED_T;const o=verificar(d.log,d.k);
+  el.textContent=(d.seed===SEED_T&&o.s===r.pontos&&v.pontos===r.pontos)?'✔ ok · '+d.log.length+' cmds · '+(d.pausas||0)+' pausa(s)'+(d.k<TICKS?' · encerrada em '+Math.round(d.k/60)+'s':''):'✘ INVÁLIDO ('+o.s+')'}
+ catch(e){el.textContent='erro'}finally{SEED=old}}
+// ===== Aceite do regulamento (uma vez por aparelho/versão; também registrado no servidor, se as regras do banco permitirem) =====
+const REGRAS_V=1,CHK=['rg1','rg2','rg3'];
+const rg=painel('<h2>Antes de entrar no torneio</h2><p style="margin:0;max-width:460px">Confira sua preparação. <b>Cada tentativa é descontada assim que a partida é reservada</b> e não volta se o aparelho, a bateria ou a internet falharem.</p><ul class="how"><li><b>Bateria:</b> carregue o celular (ideal acima de 50% ou na tomada).</li><li><b>Internet estável</b> até o resultado ser enviado, no fim. Se cair na hora de enviar, <b>não feche a página</b>: use “Tentar enviar de novo”.</li><li><b>Sem interrupções:</b> ative “Não perturbe”, feche outros apps e abas e não saia da tela do jogo (sair pausa a partida e a pausa fica registrada).</li><li><b>Teste o aparelho:</b> toque respondendo bem, tela limpa e aparelho sem travar. Escolha antes se vai jogar deitado ou em pé.</li><li><b>Treine no Amistoso:</b> é a mesma partida do torneio, de graça.</li></ul><label class="ck"><input type="checkbox" id="rg1"><span>Li e aceito o <a href="regulamento-torneio.html" target="_blank" rel="noopener">regulamento do torneio</a> e os <a href="termos-uso.html" target="_blank" rel="noopener">Termos de Uso</a>.</span></label><label class="ck"><input type="checkbox" id="rg2"><span>Vou jogar sozinho(a), com a minha conta, só com toque, teclado ou mouse: <b>sem bots, macros, scripts, IA, console/DevTools</b> ou qualquer alteração do jogo.</span></label><label class="ck"><input type="checkbox" id="rg3"><span>Testei meu aparelho e minha internet e sei que falhas deles não dão direito a nova tentativa.</span></label><button id="rgok" disabled>Aceito e quero continuar</button><button id="rgx">Voltar</button>');
+const chave=u=>'cwRegras_'+u;
+const jaAceitou=u=>{try{return localStorage.getItem(chave(u))==='v'+REGRAS_V}catch(e){return false}};
+function aceitar(cb){const c=window.CW||{};if(teste()||jaAceitou(c.user.uid)){cb();return}
+ const ok=()=>{$('rgok').disabled=!CHK.every(i=>$(i).checked)};CHK.forEach(i=>{$(i).checked=false;$(i).onchange=ok});ok();rg.style.display='flex';
+ $('rgx').onclick=()=>{rg.style.display='none'};
+ $('rgok').onclick=()=>{const u=c.user.uid;try{localStorage.setItem(chave(u),'v'+REGRAS_V)}catch(e){}
+  try{firebase.database().ref('torneioAceites/'+u).set({v:REGRAS_V,em:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{})}catch(e){}
+  rg.style.display='none';cb()}}
+bt.onclick=()=>{const c=window.CW||{};
+ if(!c.user){c.abrir&&c.abrir();return}
+ if(!c.nome){c.abrir('nome');return}
+ if(BL&&BL.erro){carregar(c.user.uid);return}
+ aceitar(()=>{if(lib())abrirLobby();else abrirPg()})};
+// ===== Encerrar a partida (botão ✕ ou Esc): pede confirmação; o tempo NÃO pausa enquanto a pergunta está aberta =====
+const qp=painel('<h2>Encerrar a partida?</h2><p id="qt" style="margin:0;max-width:420px"></p><button id="qn">Continuar jogando</button><button id="qs">Encerrar agora</button>');
+qp.style.justifyContent='center';
+function sairFechar(){qp.style.display='none'}
+function pedirSair(){if(!run||tut||qp.style.display==='flex')return;
+ $('qt').innerHTML=am?'O treino termina agora com a pontuação atual.':'A partida termina agora e vale a pontuação que você tem neste momento. <b>A tentativa do torneio não volta.</b>';
+ $('qt').innerHTML+='<br><small>O tempo continua correndo enquanto você decide.</small>';qp.style.display='flex'}
+$('qn').onclick=sairFechar;$('qs').onclick=()=>{sairFechar();if(run&&!tut)fim()};
+</script></body></html>
