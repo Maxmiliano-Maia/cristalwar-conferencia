@@ -1,0 +1,28 @@
+name: Conferir torneio
+on:
+  schedule:
+    - cron: '*/10 * * * *'          # a cada 10 min (o GitHub pode atrasar alguns minutos)
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Só simular (não grava nada)'
+        default: 'false'
+concurrency:
+  group: conferir-torneio
+  cancel-in-progress: false
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node verificar-torneio.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          DATABASE_URL: https://cristalwar-default-rtdb.firebaseio.com
+          SITE_URL: https://cristalwar.maxmilianomaia20.workers.dev/torneio
+          DRY: ${{ inputs.dry }}
