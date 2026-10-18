@@ -24,7 +24,8 @@ function conferir(sim, v) {
     if (!v || typeof v.cod !== 'string' || !Number.isFinite(v.pontos)) return { ok: false, motivo: 'formato' };
     const res = JSON.parse(Buffer.from(v.cod, 'base64').toString('utf8'));
     if (res.seed !== sim.SEED_T) return { ok: false, motivo: 'semente diferente' };
-    if (!Number.isInteger(v.k) || res.k !== v.k) return { ok: false, motivo: 'k diferente' };
+    const k = v.k === undefined ? res.k : v.k;              // partidas gravadas antes das regras novas não têm o campo k
+    if (!Number.isInteger(k) || res.k !== k) return { ok: false, motivo: 'k diferente' };
     const r = sim.verificar(res.log, res.k);              // mesma função do jogo (valida o log antes de simular)
     if (r.s < 0) return { ok: false, motivo: 'log inválido' };
     if (r.s !== v.pontos || r.s !== res.s) return { ok: false, calc: r.s, motivo: 'pontuação não confere' };
